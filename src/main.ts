@@ -59,6 +59,7 @@ if (preview) {
   // With ?manual the simulation only advances through sim.step().
   Object.assign(window, {
     game,
+    audio,
     sim: {
       step(ticks: number, actions: Action[] = []): void {
         input.scripted = new Set(actions);

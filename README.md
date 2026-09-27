@@ -6,6 +6,12 @@ paths you have already seen.
 
 **Play it in the browser:** https://mattias800.github.io/minizelda2d/
 
+![The Whispering Clearing](docs/screenshot-clearing.png)
+
+| | |
+| --- | --- |
+| ![Mossy Cavern](docs/screenshot-cavern.png) | ![The Guardian](docs/screenshot-boss.png) |
+
 The world is deliberately small (seven rooms), but it has the full loop: explore, find an
 ability, backtrack to places that were out of reach, collect heart containers, and take
 down the Guardian.
