@@ -1,0 +1,7 @@
+node_modules
+dist
+*.log
+.vite
+# Third-party reference artwork (style reference only, not ours to redistribute)
+*.jpg
+tools/out
