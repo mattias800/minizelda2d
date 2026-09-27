@@ -124,8 +124,8 @@ export function drawMapScreen(ctx: Ctx, prog: Progress, currentRoom: string, px:
   drawText(ctx, `Found ${prog.completion()}%`, 200, py0 + 22, '#6b4a3e');
 
   const help = [
-    'Arrows/WASD move   Z jump   X sword   C fire',
-    'Down: crouch   Down in air: down-thrust   Up: talk/use',
+    'Keys: arrows move  Z jump  X sword  C fire  Up talk',
+    'Pad: A jump  B/X sword  Y/LB/RB fire  Down in air: thrust',
   ];
   help.forEach((l, i) => drawText(ctx, l, VIEW_W / 2, VIEW_H - 36 + i * 9, '#8a6a5a', { align: 'center' }));
   if (t % 60 < 40) drawText(ctx, 'Enter to resume   M to mute', VIEW_W / 2, VIEW_H - 18, '#c0405e', { align: 'center' });

@@ -98,6 +98,11 @@ export class Audio {
     if (this.song) this.startSequencer();
   }
 
+  /** True until a key press or click has allowed audio to start. */
+  get locked(): boolean {
+    return !this.ctx || this.ctx.state !== 'running';
+  }
+
   toggleMute(): void {
     this.muted = !this.muted;
     if (this.ctx) this.master.gain.value = this.muted ? 0 : 0.5;

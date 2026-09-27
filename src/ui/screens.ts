@@ -84,7 +84,8 @@ export class TitleScreen {
     });
     if (this.t % 70 < 50)
       drawText(ctx, 'Press Z to start', VIEW_W / 2, VIEW_H - 22, CREAM, { outline: INK, align: 'center' });
-    drawText(ctx, 'M: mute   Enter: map', VIEW_W / 2, VIEW_H - 11, '#d8ecb2', { outline: INK, align: 'center' });
+    const hint = audio.locked ? 'Click or press any key to enable sound' : 'M: mute   Enter / Start: map';
+    drawText(ctx, hint, VIEW_W / 2, VIEW_H - 11, '#d8ecb2', { outline: INK, align: 'center' });
   }
 }
 

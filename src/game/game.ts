@@ -307,6 +307,15 @@ export class Game implements GameHost {
   draw(ctx: Ctx): void {
     ctx.fillStyle = '#10161d';
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    this.drawScreen(ctx);
+    const notice = this.input.padNotice;
+    if (notice) {
+      const text = `Controller connected: ${notice.name.slice(0, 40)}`;
+      drawText(ctx, text, VIEW_W / 2, VIEW_H - 12, '#fff0c8', { outline: '#4a2a26', align: 'center' });
+    }
+  }
+
+  private drawScreen(ctx: Ctx): void {
     if (this.mode === 'title') return this.title.draw(ctx);
     if (this.mode === 'ending') return this.ending!.draw(ctx);
     const s = this.scene;

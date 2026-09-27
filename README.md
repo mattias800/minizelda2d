@@ -22,17 +22,20 @@ down the Guardian.
 | --- | --- | --- |
 | Move | Arrow keys / WASD | D-pad / left stick |
 | Jump (press again mid-air once you have the Feather) | Z / Space / J | A |
-| Sword | X / K | X |
-| Fire spell (costs magic) | C / L | B / Y |
+| Sword | X / K | B or X |
+| Fire spell (costs magic) | C / L | Y / LB / RB |
 | Crouch (low stab, low shield) | Down | Down |
 | Down-thrust (bounce on enemies) | hold Down in the air | |
 | Up-thrust | hold Up in the air | |
 | Talk / open / rest | Up | Up |
 | Drop through a branch | Down + Jump | |
-| Map & pause | Enter / Tab / Esc | Start |
+| Map & pause | Enter / Tab / Esc | Start / Back |
 | Mute | M | |
 
 Your shield blocks spears: stand to block high throws, crouch to block low ones.
+
+Any controller the browser recognises works (Xbox/PlayStation layouts and most generic USB
+pads). Browsers only allow sound after a key press or click, so tap a key once for audio.
 
 ## The world
 
