@@ -171,7 +171,19 @@ export class Player extends Entity {
     // --- physics
     b.vy = Math.min(b.vy + PHYS.gravity, PHYS.maxFall);
     this.move();
-    if (b.onGround && !this.wasOnGround && b.vy === 0) s.sfx('land');
+    if (b.onGround && !this.wasOnGround) {
+      s.sfx('land');
+      for (let i = 0; i < 6; i++)
+        s.add(
+          new Particle(this.x + (i - 2.5) * 2.5, this.y - 1, {
+            vx: (i - 2.5) * 0.25,
+            vy: -0.2 - Math.random() * 0.4,
+            color: i % 2 ? '#e8dcc0' : '#c8b898',
+            life: 14 + Math.random() * 8,
+            drag: 0.9,
+          }),
+        );
+    }
     this.wasOnGround = b.onGround;
 
     // --- sword hits
@@ -183,6 +195,7 @@ export class Player extends Entity {
         const src = this.downThrust ? 'down' : this.upThrust ? 'up' : 'sword';
         if (e.hurt(src === 'down' ? 2 : 1, this.x, src)) {
           this.hitThisSwing.add(e);
+          s.freeze(e.dead ? 5 : 3);
           if (src === 'down') {
             b.vy = -4.4;
             this.usedDouble = false;

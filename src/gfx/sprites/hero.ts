@@ -81,43 +81,45 @@ const HEAD_PAL: Palette = {
   W: '#ffffff',
 };
 
-// 16 x 15, facing right. Cap tail and ear at the back (left).
+// 14 x 15, facing right. Cap tail and pointed ear at the back (left).
 const HEAD = [
-  '.......gGGg.....',
-  '.....gGLLLGg....',
-  '....gGLLGGGGg...',
-  '...gGLGGGGGGGg..',
-  '..gGGGGGGGGGGGg.',
-  '..gGGGzYYYYYYYYg',
-  '.gGGgzYYYYyYYYYY',
-  '.gGgzYYyYYYzYYyY',
-  'gGgSzYySSSSySSyS',
-  'gGSSszSSkkSSSkkS',
-  'egsSSsSSBBSSSBBS',
-  'eg.sSSSSbWSSSbWS',
-  'e...sSSSSSSSSSSs',
-  '.....ssSSSSSkSs.',
-  '......rssSSSss..',
+  '......gGGg....',
+  '....gGLLLGg...',
+  '...gGLLGGGGg..',
+  '..gGLGGGGGGGg.',
+  '.gGGGGGGGGGGGg',
+  '.gGGGzYYYYYYYz',
+  'gGGgzYYYyYYYyY',
+  'gGgzYYyzYYYzYY',
+  'gGgSzYSSSzSSSY',
+  'egSSSSSSkSSSkS',
+  'egsSSsSSBSSSBS',
+  '.esSSSSSBSSSBS',
+  '..esSSSSSSSSSs',
+  '....ssSSSSkSs.',
+  '.....rssssss..',
 ];
 
-const HEAD_HURT = HEAD.map((r, i) => (i === 10 ? 'egsSSsSSkkSSSkkS' : i === 11 ? 'eg.sSSSSSSSSSSSS' : r));
-const HEAD_BLINK = HEAD.map((r, i) => (i === 10 ? 'egsSSsSSSSSSSSSS' : i === 11 ? 'eg.sSSSSkkSSSkkS' : r));
+const HEAD_HURT = HEAD.map((r, i) => (i === 10 ? 'egsSSsSSkSSSkS' : i === 11 ? '.esSSSSSSSSSSS' : r));
+const HEAD_BLINK = HEAD.map((r, i) => (i === 10 ? 'egsSSsSSSSSSSS' : i === 11 ? '.esSSSSSkSSSkS' : r));
 
-// 11 x 13 round shield, seen from the front-side.
+// 13 x 14 round wooden shield with an iron rim and boss.
 const SHIELD_PAL: Palette = { I: C.iron, i: C.ironD, W: C.woodL, w: C.wood, d: C.woodD, o: C.gold };
 const SHIELD = [
-  '...iiIii...',
-  '..iWWwwwi..',
-  '.iWWwwwwdi.',
-  'iWWwwwwwwdi',
-  'IWwwwoowwdi',
-  'IWwwoIIowdi',
-  'IwwwoIIowdi',
-  'iwwwwoowddi',
-  'iwwwwwwwddi',
-  '.iwwwwwddi.',
-  '..iwwdddi..',
-  '...iiiii...',
+  '....iiiii....',
+  '..iiWWwwwii..',
+  '.iWWWwwwwwdi.',
+  '.iWWwwwwwwdi.',
+  'iWWwwwwwwwwdi',
+  'iWwwwwIwwwwdi',
+  'IWwwwIoIwwwdI',
+  'IWwwwwIwwwwdI',
+  'iwwwwwwwwwddi',
+  'iwwwwwwwwwddi',
+  '.iwwwwwwwddi.',
+  '.iwwwwwwdddi.',
+  '..iiwwdddii..',
+  '....iiiii....',
 ];
 
 interface Pose {
@@ -145,9 +147,9 @@ function drawHero(p: Pose): Sprite {
   const by = p.by ?? 0;
   const lean = p.lean ?? 0;
   const hipX = AX + Math.round(lean * 0.3);
-  const hipY = AY - 13 + by;
+  const hipY = AY - 15 + by;
   const shX = AX + lean;
-  const shY = hipY - 10;
+  const shY = hipY - 11;
   const shoulderB: [number, number] = [shX - 3, shY + 1];
   const shoulderF: [number, number] = [shX + 3, shY + 1];
   const handB: [number, number] = [shoulderB[0] + p.handB[0], shoulderB[1] + p.handB[1]];
@@ -203,7 +205,7 @@ function drawHero(p: Pose): Sprite {
       sx = shX - 7;
       sy = shY + 2;
     }
-    pt.grid(SHIELD, SHIELD_PAL, sx - 5, sy - 6);
+    pt.grid(SHIELD, SHIELD_PAL, sx - 6, sy - 7);
   };
 
   // --- back layer
@@ -247,7 +249,7 @@ function drawHero(p: Pose): Sprite {
 
   // --- head
   const head = p.head ?? HEAD;
-  pt.grid(head, HEAD_PAL, shX - 8, shY - 15 + (p.headDy ?? 0));
+  pt.grid(head, HEAD_PAL, shX - 7, shY - 14 + (p.headDy ?? 0));
 
   // --- front arm + shield
   arm(shoulderF, handF, true);
@@ -268,10 +270,10 @@ function rotateLying(s: Sprite): Sprite {
 }
 
 const IDLE_BASE: Pose = {
-  front: [4, 0],
-  back: [-4, 0],
-  handF: [4, 3],
-  handB: [-1, 8],
+  front: [5, 0],
+  back: [-5, 0],
+  handF: [6, 6],
+  handB: [-1, 9],
   sword: { angle: 38 },
   shield: 'front',
 };
@@ -289,8 +291,8 @@ function walkPose(i: number, n: number): Pose {
     lean: 1,
     front: [fx + 1, lift],
     back: [bx - 1, blift],
-    handB: [-1 - Math.round(Math.cos(ph) * 2), 8],
-    handF: [4, 3 + (bob ? 0 : 1)],
+    handB: [-1 - Math.round(Math.cos(ph) * 2), 9],
+    handF: [6, 6 + (bob ? 0 : 1)],
   };
 }
 
@@ -301,7 +303,7 @@ export function heroFrames(): Record<HeroAnim, Sprite[]> {
   frames = {
     idle: [
       drawHero(IDLE_BASE),
-      drawHero({ ...IDLE_BASE, by: 1, headDy: 0, handF: [4, 4], handB: [-1, 9] }),
+      drawHero({ ...IDLE_BASE, by: 1, headDy: 0, handF: [6, 7], handB: [-1, 10] }),
       drawHero({ ...IDLE_BASE, head: HEAD_BLINK }),
     ],
     walk: Array.from({ length: 6 }, (_, i) => drawHero(walkPose(i, 6))),

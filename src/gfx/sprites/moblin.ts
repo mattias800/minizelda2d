@@ -30,21 +30,23 @@ export interface MoblinStyle {
   crown?: boolean;
 }
 
-// 14 x 13 facing right: horns, heavy brow, snout with tusks, earring at the back.
+// 16 x 15 facing right: horns, heavy brow, jutting snout with tusks, earring at the back.
 const HEAD = [
-  '.KK.......KK..',
-  '.KkK.....KkK..',
-  '..KRRRRRRRK...',
-  '..RHHHRRRRRr..',
-  '.RHHRRRRRRRRr.',
-  '.RHRRRddRRRRr.',
-  'oRRRRdWERRRRRr',
-  'oRrRRRddRRRRRr',
-  '.rRRRRRRRRRHHR',
-  '.rrRRRTmmTRRRR',
-  '..rrRRTmmmmTRr',
-  '...rrrRRRRRRr.',
-  '....rrrrrrrr..',
+  '..KK........KK..',
+  '..KkK......KkK..',
+  '...KKRRRRRRKK...',
+  '...RRHHHRRRRRr..',
+  '..RHHHHRRRRRRRr.',
+  '..RHHRRRRRRRRRr.',
+  '.RRHRRRddddRRRRr',
+  'oRRRRRdWEdRRRRRr',
+  'oRrRRRRddRRRRHHR',
+  '.rRRRRRRRRRRHHHR',
+  '.rRRRRRRTmmmTRRR',
+  '..rRRRRRTmmmmmTR',
+  '..rrRRRRRTTRRTTr',
+  '...rrrRRRRRRRRr.',
+  '.....rrrrrrrrr..',
 ];
 
 // 18 x 16 helmeted brute head.
@@ -152,10 +154,11 @@ interface MPose {
   lean?: number;
   front: [number, number];
   back: [number, number];
-  /** Weapon angle in degrees (0 = forward, -90 = up), held in the back hand. */
+  /** Weapon angle in degrees (0 = forward, -90 = up). */
   weapon: number;
-  handB: [number, number];
-  handF: [number, number];
+  /** Weapon hand and free hand, relative to their shoulders. */
+  handW: [number, number];
+  handFree: [number, number];
   hurt?: boolean;
   noWeapon?: boolean;
 }
@@ -174,9 +177,19 @@ function drawMoblin(st: MoblinStyle, p: MPose): Sprite {
   const hipY = AY - S(14) + by;
   const shX = AX + lean + S(1);
   const shY = hipY - S(12);
-  const hB: [number, number] = [shX - S(6) + S(p.handB[0]), shY + S(3) + S(p.handB[1])];
-  const hF: [number, number] = [shX + S(6) + S(p.handF[0]), shY + S(3) + S(p.handF[1])];
+  // Clubs and axes are brandished in the front hand; spears are thrown overhand from the back.
+  const weaponFront = st.weapon !== 'spear';
+  const shB: [number, number] = [shX - S(5), shY + S(3)];
+  const shF: [number, number] = [shX + S(5), shY + S(3)];
+  const shW = weaponFront ? shF : shB;
+  const shFree = weaponFront ? shB : shF;
+  const hW: [number, number] = [shW[0] + S(p.handW[0]), shW[1] + S(p.handW[1])];
+  const hFree: [number, number] = [shFree[0] + S(p.handFree[0]), shFree[1] + S(p.handFree[1])];
   const k = st.skin;
+  const arm = (from: [number, number], to: [number, number], color: string, fist: string) => {
+    pt.line(from[0], from[1], to[0], to[1], color, S(5));
+    pt.ellipse(to[0], to[1], S(2.5), S(2.5), fist);
+  };
 
   const leg = (hx: number, foot: [number, number], back: boolean) => {
     const fx = AX + S(foot[0]);
@@ -191,7 +204,7 @@ function drawMoblin(st: MoblinStyle, p: MPose): Sprite {
     const a = (p.weapon * Math.PI) / 180;
     const dx = Math.cos(a);
     const dy = Math.sin(a);
-    const [x, y] = hB;
+    const [x, y] = hW;
     if (st.weapon === 'club') {
       // a heavy stone slab on a short handle
       pt.line(x - dx * S(2), y - dy * S(2), x + dx * S(4), y + dy * S(4), '#5e3a32', S(3));
@@ -235,15 +248,17 @@ function drawMoblin(st: MoblinStyle, p: MPose): Sprite {
     }
   };
 
-  // back arm + weapon go behind the body
-  pt.line(shX - S(4), shY + S(2), hB[0], hB[1], k.shade, S(5));
-  pt.ellipse(hB[0], hB[1], S(2.5), S(2.5), k.shade);
-  weapon();
+  // back arm (and a spear) go behind the body
+  if (weaponFront) arm(shB, hFree, k.shade, k.shade);
+  else {
+    arm(shB, hW, k.shade, k.shade);
+    weapon();
+  }
   leg(hipX - S(3), p.back, true);
 
   // hunched torso + belly
-  pt.ellipse(shX - S(1), shY + S(6), S(9), S(9), k.base);
-  pt.ellipse(shX - S(3), shY + S(3), S(5), S(4), k.hi);
+  pt.ellipse(shX - S(1), shY + S(7), S(8), S(8), k.base);
+  pt.ellipse(shX - S(3), shY + S(4), S(4), S(3), k.hi);
   pt.ellipse(hipX + S(2), hipY - S(4), S(7), S(6), k.base);
   pt.ellipse(hipX + S(3), hipY - S(5), S(4), S(3), k.hi);
   pt.ellipse(shX - S(6), shY + S(9), S(3), S(5), k.shade);
@@ -290,9 +305,11 @@ function drawMoblin(st: MoblinStyle, p: MPose): Sprite {
   pt.grid(st.head, shadow, headX, headY + 1);
   pt.grid(st.head, pal, headX, headY);
 
-  // front arm
-  pt.line(shX + S(5), shY + S(3), hF[0], hF[1], k.base, S(5));
-  pt.ellipse(hF[0], hF[1], S(2.5), S(2.5), k.hi);
+  // front arm; a club or axe is held up in front
+  if (weaponFront) {
+    arm(shF, hW, k.base, k.hi);
+    weapon();
+  } else arm(shF, hFree, k.base, k.hi);
 
   return pt.toSprite(AX, AY);
 }
@@ -303,7 +320,10 @@ export function moblinFrames(kind: MoblinKind): Record<MoblinAnim, Sprite[]> {
   let f = cache.get(kind);
   if (f) return f;
   const st: MoblinStyle = MOBLIN_STYLES[kind];
-  const idle: MPose = { front: [5, 0], back: [-5, 0], weapon: -100, handB: [0, -6], handF: [3, 6] };
+  const spear = st.weapon === 'spear';
+  // weapon hand positions differ: front-hand clubs vs back-hand spears
+  const raised: [number, number] = spear ? [0, -9] : [12, -5];
+  const idle: MPose = { front: [5, 0], back: [-5, 0], weapon: spear ? -100 : -80, handW: raised, handFree: spear ? [3, 6] : [-3, 8] };
   const walk = (i: number): MPose => {
     const ph = (i / 4) * Math.PI * 2;
     return {
@@ -311,17 +331,26 @@ export function moblinFrames(kind: MoblinKind): Record<MoblinAnim, Sprite[]> {
       by: Math.abs(Math.sin(ph)) > 0.7 ? -1 : 0,
       front: [Math.round(Math.cos(ph) * 5) + 1, Math.max(0, Math.round(Math.sin(ph) * 3))],
       back: [Math.round(-Math.cos(ph) * 5) - 1, Math.max(0, Math.round(-Math.sin(ph) * 3))],
-      handF: [3, 6 + Math.round(Math.sin(ph))],
+      handFree: [idle.handFree[0], idle.handFree[1] + Math.round(Math.sin(ph))],
     };
   };
-  const spear = st.weapon === 'spear';
   f = {
-    idle: [drawMoblin(st, idle), drawMoblin(st, { ...idle, by: 1, handF: [3, 7] })],
+    idle: [drawMoblin(st, idle), drawMoblin(st, { ...idle, by: 1, handW: [raised[0], raised[1] + 1] })],
     walk: [0, 1, 2, 3].map((i) => drawMoblin(st, walk(i))),
-    windup: [drawMoblin(st, { ...idle, lean: -2, weapon: spear ? -170 : -140, handB: [-2, -9] })],
-    swing: [drawMoblin(st, { ...idle, lean: 3, front: [7, 0], back: [-6, 0], weapon: spear ? 0 : 30, handB: [12, 2], handF: [0, 7] })],
-    hurt: [drawMoblin(st, { ...idle, lean: -3, hurt: true, weapon: -120 })],
-    throw: [drawMoblin(st, { ...idle, lean: 2, weapon: 0, handB: [10, -4], noWeapon: true })],
+    windup: [drawMoblin(st, { ...idle, lean: -2, weapon: spear ? -170 : -120, handW: spear ? [-2, -11] : [7, -12] })],
+    swing: [
+      drawMoblin(st, {
+        ...idle,
+        lean: 3,
+        front: [7, 0],
+        back: [-6, 0],
+        weapon: spear ? 0 : 40,
+        handW: spear ? [14, 1] : [9, 2],
+        handFree: spear ? [0, 7] : [-5, 5],
+      }),
+    ],
+    hurt: [drawMoblin(st, { ...idle, lean: -3, hurt: true, weapon: -110, handW: spear ? [0, -6] : [10, -6] })],
+    throw: [drawMoblin(st, { ...idle, lean: 2, weapon: 0, handW: [12, -6], noWeapon: true })],
   };
   cache.set(kind, f);
   return f;

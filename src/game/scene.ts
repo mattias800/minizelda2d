@@ -69,6 +69,8 @@ export class Scene {
   camY = 0;
   private shakeT = 0;
   private shakeAmp = 0;
+  /** Freeze-frames after a solid hit, for impact. */
+  private hitstop = 0;
   gate: BossGate | null = null;
   /** Set when the player walked off an edge into another room. */
   exit: ExitRequest | null = null;
@@ -238,6 +240,10 @@ export class Scene {
     audio.sfx(n);
   }
 
+  freeze(ticks: number): void {
+    this.hitstop = Math.max(this.hitstop, ticks);
+  }
+
   shake(amount: number): void {
     this.shakeAmp = Math.max(this.shakeAmp, amount);
     this.shakeT = 14;
@@ -314,6 +320,10 @@ export class Scene {
   // ------------------------------------------------------------ update
 
   update(): void {
+    if (this.hitstop > 0) {
+      this.hitstop--;
+      return;
+    }
     this.flushPending();
     for (const e of this.entities) if (!e.dead) e.update();
     this.flushPending();
