@@ -32,6 +32,8 @@ export class Input {
   private keys = new Set<Action>();
   private prev = new Set<Action>();
   private cur = new Set<Action>();
+  /** Actions held by a script (automated play-tests); merged with real input. */
+  scripted = new Set<Action>();
   /** Fires on the first user gesture; audio needs one to start. */
   onFirstInteraction: (() => void) | null = null;
 
@@ -62,7 +64,7 @@ export class Input {
 
   update(): void {
     this.prev = this.cur;
-    this.cur = new Set(this.keys);
+    this.cur = new Set([...this.keys, ...this.scripted]);
     this.pollGamepad(this.cur);
   }
 

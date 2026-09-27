@@ -30,7 +30,7 @@ interface AtmosphereConfig {
 }
 
 const CONFIGS: Record<Theme, AtmosphereConfig> = {
-  forest: { rays: 3, rayColor: '#fdfbe0', rayAlpha: 0.34, motes: 26, moteColors: ['#ffffff', '#fff4c8'], moteDrift: [0.08, -0.05] },
+  forest: { rays: 3, rayColor: '#fdfbe0', rayAlpha: 0.42, motes: 26, moteColors: ['#ffffff', '#fff4c8'], moteDrift: [0.08, -0.05] },
   canopy: { rays: 2, rayColor: '#ffffff', rayAlpha: 0.3, motes: 14, moteColors: ['#ffffff'], moteDrift: [0.15, 0.05], leaves: true },
   cave: { rays: 0, rayColor: '#b8f0e8', rayAlpha: 0.12, motes: 20, moteColors: ['#62d6d0', '#8ce8d8'], moteDrift: [0.03, -0.12], glow: true },
   shrine: { rays: 3, rayColor: '#fff8e0', rayAlpha: 0.22, motes: 20, moteColors: ['#fff4c8', '#ffffff'], moteDrift: [0.04, 0.03] },

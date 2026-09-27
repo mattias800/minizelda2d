@@ -1,5 +1,5 @@
 import { Painter } from '../painter';
-import { Palette, Sprite, spriteFromGrid } from '../sprite';
+import { Palette, spriteFromGrid } from '../sprite';
 
 const once = <T>(fn: () => T): (() => T) => {
   let v: T | undefined;
@@ -75,11 +75,8 @@ export const itemRing = once(() => {
 /** Little key cap shown in the item ring before an item is equipped. */
 export const keyCap = once(() =>
   spriteFromGrid(
-    ['.WWWWWW.', 'WWWWWWWW', 'WWkkkWWW', 'WWkWWkWW', 'WWkkkWWW', 'WWkWWkWW', 'WWkkkWWW', 'SSSSSSSS', '.SSSSSS.'],
+    ['.WWWWWW.', 'WWWWWWWW', 'WWWkkkWW', 'WWkWWWWW', 'WWkWWWWW', 'WWkWWWWW', 'WWWkkkWW', 'SSSSSSSS', '.SSSSSS.'],
     { W: '#f4f0e8', S: '#b8b0a8', k: '#6a6470' },
     { outline: '#4a4450', ax: 0, ay: 0 },
   ),
 );
-
-export type HudSprites = ReturnType<typeof hudHearts>;
-export type { Sprite };

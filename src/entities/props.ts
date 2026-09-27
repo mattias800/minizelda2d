@@ -1,7 +1,7 @@
 import { Rect } from '../core/math';
 import { Ctx } from '../gfx/canvas';
 import { squirrelFrames } from '../gfx/sprites/creatures';
-import { brambleTiles, chestFrames, saveStoneFrames } from '../gfx/sprites/props';
+import { brambleMass, chestFrames, saveStoneFrames } from '../gfx/sprites/props';
 import { Sprite } from '../gfx/sprite';
 import { drawBubble } from '../ui/bubble';
 import { ItemId } from '../world/rooms';
@@ -193,19 +193,17 @@ export class Bramble extends Entity {
       this.dead = true;
     }
   }
+  private art: ReturnType<typeof brambleMass> | null = null;
+
   draw(ctx: Ctx, camX: number, camY: number): void {
-    const t = brambleTiles();
-    for (const [cx, cy] of this.tiles) {
-      const x = cx * TILE - camX;
-      const y = cy * TILE - camY;
-      if (this.burning >= 0) {
-        if (this.burning > 30 && (this.burning + cx + cy) % 4 < 2) continue;
-        ctx.globalAlpha = Math.max(0.2, 1 - this.burning / 50);
-      }
-      t[(cx * 7 + cy * 3) % 2].draw(ctx, x - 2, y - 2);
-      t[(cx + cy) % 2].draw(ctx, x + 2, y + 1, true);
-      ctx.globalAlpha = 1;
+    this.art ??= brambleMass(this.tiles, this.tiles[0][0] * 31 + this.tiles[0][1]);
+    const { sprite, x, y } = this.art;
+    if (this.burning >= 0) {
+      if (this.burning > 30 && this.burning % 4 < 2) return;
+      ctx.globalAlpha = Math.max(0.15, 1 - this.burning / 48);
     }
+    ctx.drawImage(sprite.img, Math.round(x - camX), Math.round(y - camY));
+    ctx.globalAlpha = 1;
   }
 }
 
@@ -228,20 +226,15 @@ export class BossGate extends Entity {
   update(): void {
     this.anim++;
   }
+  private art: ReturnType<typeof brambleMass> | null = null;
+
   draw(ctx: Ctx, camX: number, camY: number): void {
     if (!this.closed && this.anim > 20) return;
-    const t = brambleTiles();
+    this.art ??= brambleMass(this.tiles, 77);
+    const { sprite, x, y } = this.art;
     const grow = this.closed ? Math.min(1, this.anim / 16) : Math.max(0, 1 - this.anim / 20);
-    for (const [cx, cy] of this.tiles) {
-      const x = cx * TILE - camX;
-      const y = cy * TILE - camY;
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(x - 4, y + TILE * (1 - grow) - 4, TILE + 8, TILE * grow + 8);
-      ctx.clip();
-      t[(cx + cy) % 2].draw(ctx, x - 2, y - 2);
-      t[(cx + cy + 1) % 2].draw(ctx, x + 2, y + 2, true);
-      ctx.restore();
-    }
+    const h = Math.round(sprite.h * grow);
+    // grows up out of the ground
+    ctx.drawImage(sprite.img, 0, sprite.h - h, sprite.w, h, Math.round(x - camX), Math.round(y - camY + sprite.h - h), sprite.w, h);
   }
 }

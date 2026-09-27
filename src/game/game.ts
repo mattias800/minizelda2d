@@ -95,6 +95,8 @@ export class Game implements GameHost {
     const def = roomById(id);
     this.scene = new Scene(def, this, this.input, this.progress, entry);
     this.progress.visit(def.id);
+    // Autosave what was found; the respawn point only moves at save stones.
+    if (Progress.hasSave() || def.id !== 'clearing') this.progress.save();
     this.bossAwake = false;
     if (def.id === 'lair' && !this.progress.flag('boss:guardian')) audio.playSong('silence', null);
     else audio.playSong(def.music, song(def.music));

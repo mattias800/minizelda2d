@@ -74,6 +74,25 @@ export const heartFlower = once(() =>
 );
 
 const TUFTS = [
+  [
+    '.....L......L...',
+    '..G..GL....GL...',
+    '..GL.GG.L..GG.G.',
+    '.GGL.GGLG.GGL.GL',
+    '.GGG.GGGG.GGG.GG',
+    'GGGGLGGGGGGGGLGG',
+    'GgGGGGgGGGgGGGGg',
+    'gggGgggGggggGggg',
+  ],
+  [
+    '....L.....',
+    '.L..GL..L.',
+    '.GL.GG.GL.',
+    'GGGLGGLGGL',
+    'GGGGGGGGGG',
+    'gGGgGGgGGg',
+    'gggggggggg',
+  ],
   ['.....G......', '..G..GL..G..', '..GL.GG.GL..', 'G.GG.GG.GG.G', 'GLGGGGGGGGLG', 'gGGgGGgGGgGg'],
   ['...G....', '.G.GL.G.', '.GLGG.GL', 'GGGGGGGG', 'gGgGGgGg'],
   ['.......L......', '..G....GL...G.', '..GL.G.GG..GL.', 'G.GG.GLGG..GG.', 'GLGGGGGGGG.GGG', 'GGGGGGGGGGGGGL', 'gGgGGgGGgGGgGg'],
@@ -329,32 +348,76 @@ export const spearSprite = once(() =>
   spriteFromGrid(['..............WW.', 'bbbbbbbbbbbbbSSSW', '..............WW.'], { b: '#8a5a44', S: '#c8d0dc', W: '#f2f6fa' }, { ay: 2 }),
 );
 
-/** Bramble tile (16x16), two variants. */
-export const brambleTiles = once(() => {
-  const out: Sprite[] = [];
-  for (let v = 0; v < 2; v++) {
-    const pt = new Painter(16, 16);
-    const rng = new Rng(40 + v);
-    const vine = ['#3b2436', '#5a3048', '#7a4058'];
-    for (let k = 0; k < 5; k++) {
-      let x = rng.range(0, 16);
-      let y = rng.range(0, 16);
-      const ang = rng.range(0, Math.PI * 2);
-      for (let i = 0; i < 16; i++) {
-        x += Math.cos(ang + Math.sin(i / 3) * 0.8);
-        y += Math.sin(ang + Math.sin(i / 3) * 0.8);
-        const xx = ((Math.round(x) % 16) + 16) % 16;
-        const yy = ((Math.round(y) % 16) + 16) % 16;
-        pt.px(xx, yy, vine[k % 3]);
-        pt.px(xx, (yy + 1) % 16, vine[0]);
-        if (i % 5 === 2) pt.px(xx + 1, yy - 1, '#e8a0b0');
+/**
+ * A dense, thorny bramble mass covering the given tiles (plus a small ragged
+ * margin). Returns the sprite and its top-left position in world pixels.
+ */
+export function brambleMass(tiles: [number, number][], seed: number): { sprite: Sprite; x: number; y: number } {
+  const T = 16;
+  const pad = 4;
+  const minX = Math.min(...tiles.map((t) => t[0]));
+  const minY = Math.min(...tiles.map((t) => t[1]));
+  const maxX = Math.max(...tiles.map((t) => t[0]));
+  const maxY = Math.max(...tiles.map((t) => t[1]));
+  const w = (maxX - minX + 1) * T + pad * 2;
+  const h = (maxY - minY + 1) * T + pad * 2;
+  const pt = new Painter(w, h);
+  const rng = new Rng(seed);
+  // clumpy thorn-bush body
+  const bush = ramp('#1e1220', '#2e1a2a', '#43263c', '#5e3450', '#7c4866', '#9a5e7c');
+  const buf = pt.buf;
+  const blobs: { x: number; y: number; r: number }[] = [];
+  for (const [tx, ty] of tiles)
+    for (let k = 0; k < 3; k++)
+      blobs.push({ x: (tx - minX) * T + pad + rng.range(1, 15), y: (ty - minY) * T + pad + rng.range(2, 14), r: rng.range(6, 9.5) });
+  blobs.sort((a, b) => a.y - b.y);
+  for (const b of blobs) leafCluster(buf, b.x, b.y, b.r, { ramp: bush, rim: bush[0], seed: Math.round(b.x * 13 + b.y), texture: 1, bias: -0.5 });
+  // thorns poking out of the silhouette
+  for (const b of blobs)
+    for (let k = 0; k < 4; k++) {
+      const a = rng.range(0, Math.PI * 2);
+      const x0 = b.x + Math.cos(a) * (b.r - 1);
+      const y0 = b.y + Math.sin(a) * (b.r - 1);
+      pt.line(x0, y0, x0 + Math.cos(a) * 3, y0 + Math.sin(a) * 3, '#5e3450');
+      pt.px(x0 + Math.cos(a) * 3, y0 + Math.sin(a) * 3, '#e8c0cc');
+    }
+  // curling vines, lit from above
+  const vineColors = ['#4a2a3e', '#6a3650', '#8a4a64', '#a8667a'];
+  const strokes = tiles.length * 3;
+  for (let k = 0; k < strokes; k++) {
+    const [tx, ty] = rng.pick(tiles);
+    let x = (tx - minX) * T + pad + rng.range(0, T);
+    let y = (ty - minY) * T + pad + rng.range(0, T);
+    let a = rng.range(0, Math.PI * 2);
+    const curl = rng.range(-0.35, 0.35);
+    const len = rng.int(8, 18);
+    for (let i = 0; i < len; i++) {
+      a += curl;
+      x += Math.cos(a);
+      y += Math.sin(a);
+      const lit = Math.sin(a) < -0.2 ? 3 : Math.sin(a) < 0.3 ? 2 : 1;
+      pt.px(x, y, vineColors[lit]);
+      pt.px(x, y + 1, vineColors[0]);
+      if (i % 6 === 3) {
+        // thorn: a pale spike sticking out of the vine
+        const nx = Math.round(x - Math.sin(a) * 1.5);
+        const ny = Math.round(y + Math.cos(a) * 1.5);
+        pt.px(nx, ny, '#f0c8d0');
       }
     }
-    for (let i = 0; i < 6; i++) pt.px(rng.int(0, 15), rng.int(0, 15), '#c04a5a');
-    out.push(pt.toSprite(0, 0, false));
   }
-  return out;
-});
+  // a few blood-red berries
+  for (let i = 0; i < tiles.length * 2; i++) {
+    const [tx, ty] = rng.pick(tiles);
+    const bx = (tx - minX) * T + pad + rng.int(2, 13);
+    const by = (ty - minY) * T + pad + rng.int(2, 13);
+    pt.px(bx, by, '#d04050');
+    pt.px(bx + 1, by, '#a02a3a');
+    pt.px(bx, by - 1, '#ff8a9a');
+  }
+  const sprite = pt.toSprite(0, 0, '#1a1018');
+  return { sprite, x: minX * T - pad - 1, y: minY * T - pad - 1 };
+}
 
 /** Puff of smoke for defeated enemies: 5 frames. */
 export const poofFrames = once(() => {

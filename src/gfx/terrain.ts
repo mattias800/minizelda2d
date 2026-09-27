@@ -2,7 +2,7 @@ import { hash2, valueNoise } from '../core/math';
 import { Theme } from '../world/rooms';
 import { TILE, Tile, TileMap } from '../world/tilemap';
 import { PixelBuf, packColor } from './canvas';
-import { cobble } from './paint';
+import { cobble, leafCluster, ramp } from './paint';
 import { P } from './palette';
 
 /**
@@ -98,14 +98,18 @@ export function paintTerrain(map: TileMap, theme: Theme, seed: number): HTMLCanv
   // Ground mask, with the outside of the room treated as a continuation of
   // the edge so the painting doesn't get a fake rim at room borders.
   const ground = new Uint8Array(W * H);
+  const leafy = (x: number, y: number) => map.isFoliage(Math.floor(x / TILE), Math.floor(y / TILE));
   for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) ground[y * W + x] = map.isGroundPixel(x, y) ? 1 : 0;
+    for (let x = 0; x < W; x++) ground[y * W + x] = map.isGroundPixel(x, y) && (look.foliage || !leafy(x, y)) ? 1 : 0;
   const g = (x: number, y: number): number => {
     x = x < 0 ? 0 : x >= W ? W - 1 : x;
     if (y < 0) y = 0;
     if (y >= H) return 1;
     return ground[y * W + x];
   };
+
+  // Thorn tiles count as cover for depth, so no grass grows underneath them.
+  const thorn = (x: number, y: number) => map.get(Math.floor(x / TILE), Math.floor(y / TILE)) === Tile.Thorns;
 
   // depth: ground pixels since the last air pixel above; under: air-distance below.
   const depth = new Uint16Array(W * H);
@@ -114,7 +118,7 @@ export function paintTerrain(map: TileMap, theme: Theme, seed: number): HTMLCanv
     // Ground touching the top edge continues above the room: no grass there.
     let d = 0;
     for (let y = 0; y < H; y++) {
-      if (!g(x, y)) d = 0;
+      if (!g(x, y) && !thorn(x, y)) d = 0;
       else if (y === 0 || d >= 200) d = 200;
       else d++;
       depth[y * W + x] = d;
@@ -148,6 +152,12 @@ export function paintTerrain(map: TileMap, theme: Theme, seed: number): HTMLCanv
   }
 
 
+  if (look.foliage) {
+    paintFoliage(buf, map, ground, side, depth, under, seed, (cx, cy) => map.get(cx, cy) === Tile.Solid);
+    paintSpecialTiles(buf, map, theme, seed);
+    return buf.toCanvas();
+  }
+
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -178,7 +188,47 @@ export function paintTerrain(map: TileMap, theme: Theme, seed: number): HTMLCanv
   paintUndersides(buf, map, look, seed, g);
   paintTufts(buf, look, seed, g, W, H);
   paintSpecialTiles(buf, map, theme, seed);
+  if (map.foliage.includes(1)) paintFoliage(buf, map, null, null, null, null, seed, (cx, cy) => map.isFoliage(cx, cy));
   return buf.toCanvas();
+}
+
+/** Canopy rooms: solid tiles become rounded masses of overlapping leaf clusters. */
+function paintFoliage(
+  buf: PixelBuf,
+  map: TileMap,
+  ground: Uint8Array | null,
+  side: Uint8Array | null,
+  depth: Uint16Array | null,
+  under: Uint16Array | null,
+  seed: number,
+  isLeaf: (cx: number, cy: number) => boolean,
+): void {
+  const core = packColor(P.g1);
+  if (ground && side && depth && under) {
+    for (let i = 0; i < ground.length; i++)
+      if (ground[i] && side[i] >= 3 && depth[i] >= 4 && under[i] >= 4) buf.data[i] = core;
+  } else {
+    // fill tile interiors so gaps between clusters stay dark
+    for (let cy = 0; cy < map.rows; cy++)
+      for (let cx = 0; cx < map.cols; cx++)
+        if (isLeaf(cx, cy)) buf.fillRect(cx * TILE + 3, cy * TILE + 3, TILE - 6, TILE - 6, core);
+  }
+  const leaves = ramp(P.navy, P.g1, P.g2, P.g3, P.g4, P.g5, P.g6, P.g7);
+  const rim = packColor(P.navy);
+  const clusters: { x: number; y: number; r: number }[] = [];
+  for (let cy = 0; cy < map.rows; cy++)
+    for (let cx = 0; cx < map.cols; cx++) {
+      if (!isLeaf(cx, cy)) continue;
+      for (let k = 0; k < 2; k++) {
+        clusters.push({
+          x: cx * TILE + 3 + hash2(cx, cy * 2 + k, seed) * 10,
+          y: cy * TILE + 3 + hash2(cx * 3 + k, cy, seed) * 10,
+          r: 8 + hash2(cx + k, cy + 7, seed) * 3,
+        });
+      }
+    }
+  clusters.sort((a, b) => a.y - b.y);
+  for (const c of clusters) leafCluster(buf, c.x, c.y, c.r, { ramp: leaves, rim, seed: Math.round(c.x * 7 + c.y), bias: ground ? -0.2 : -0.7 });
 }
 
 function grassPixel(x: number, y: number, d: number, s: number, u: number, look: ThemeLook, seed: number): number {
@@ -298,55 +348,84 @@ function paintTufts(
 }
 
 function paintSpecialTiles(buf: PixelBuf, map: TileMap, theme: Theme, seed: number): void {
-  const plankLight = packColor(theme === 'shrine' ? '#aaa2ba' : P.b5);
-  const plankMid = packColor(theme === 'shrine' ? '#807894' : P.b3);
-  const plankDark = packColor(theme === 'shrine' ? '#4e4760' : P.b1);
-  const leaf = [packColor(P.g2), packColor(P.g4), packColor(P.g6)];
-  const thornD = packColor('#3b2436');
-  const thornM = packColor('#6b3a4e');
-  const thornL = packColor('#b0627a');
   for (let cy = 0; cy < map.rows; cy++) {
     for (let cx = 0; cx < map.cols; cx++) {
       const t = map.get(cx, cy);
-      const x0 = cx * TILE;
-      const y0 = cy * TILE;
-      if (t === Tile.OneWay) {
-        // a branch / slab: 5px tall
-        for (let x = 0; x < TILE; x++) {
-          const wob = hash2(cx * TILE + x, 1, seed) < 0.15 ? 1 : 0;
-          buf.set(x0 + x, y0, plankLight);
-          buf.set(x0 + x, y0 + 1, plankMid);
-          buf.set(x0 + x, y0 + 2, hash2(x0 + x, 2, seed) < 0.2 ? plankDark : plankMid);
-          buf.set(x0 + x, y0 + 3, plankMid);
-          buf.set(x0 + x, y0 + 4, plankDark);
-          if (wob) buf.set(x0 + x, y0 + 5, plankDark);
-          if (theme !== 'shrine' && hash2(x0 + x, 5, seed) < 0.3) {
-            const l = Math.floor(hash2(x0 + x, 6, seed) * 3);
-            buf.set(x0 + x, y0 - 1, leaf[l]);
-            if (l > 0) buf.set(x0 + x, y0 + 5, leaf[l - 1]);
-          }
-        }
-        if (map.get(cx - 1, cy) !== Tile.OneWay) for (let y = 0; y < 5; y++) buf.set(x0, y0 + y, plankDark);
-        if (map.get(cx + 1, cy) !== Tile.OneWay) for (let y = 0; y < 5; y++) buf.set(x0 + TILE - 1, y0 + y, plankDark);
-      } else if (t === Tile.Thorns) {
-        for (let k = 0; k < 4; k++) {
-          const bx = x0 + k * 4 + Math.floor(hash2(cx, k, seed) * 2);
-          const h = 6 + Math.floor(hash2(cx, k + 9, seed) * 6);
-          for (let yy = 0; yy < h; yy++) {
-            const wdt = Math.max(0, Math.floor(((h - yy) / h) * 2.5));
-            for (let xx = -wdt; xx <= wdt; xx++) {
-              const c = xx === -wdt && yy > 1 ? thornL : xx === wdt ? thornD : thornM;
-              buf.set(bx + xx + 1, y0 + TILE - 1 - yy, c);
-            }
-          }
-        }
-        // vines
-        for (let x = 0; x < TILE; x++) {
-          const vy = y0 + 9 + Math.round(Math.sin((x0 + x) / 3) * 2);
-          buf.set(x0 + x, vy, thornD);
-          buf.set(x0 + x, vy + 1, thornM);
-        }
+      if (t === Tile.OneWay) paintPlatform(buf, map, cx, cy, theme, seed);
+      else if (t === Tile.Thorns) paintThorns(buf, cx, cy, seed);
+    }
+  }
+}
+
+/** One-way platforms: branches outdoors, slabs in the shrine, planks elsewhere. */
+function paintPlatform(buf: PixelBuf, map: TileMap, cx: number, cy: number, theme: Theme, seed: number): void {
+  const x0 = cx * TILE;
+  const y0 = cy * TILE;
+  const leftEnd = map.get(cx - 1, cy) !== Tile.OneWay;
+  const rightEnd = map.get(cx + 1, cy) !== Tile.OneWay;
+  if (theme === 'shrine') {
+    const c = [packColor('#aaa2ba'), packColor('#948ca6'), packColor('#6e6682'), packColor('#4e4760')];
+    for (let x = 0; x < TILE; x++)
+      for (let y = 0; y < 6; y++) {
+        let v = y === 0 ? 0 : y < 3 ? 1 : y < 5 ? 2 : 3;
+        if ((x0 + x) % 16 === 0 && y > 0) v = 3;
+        buf.set(x0 + x, y0 + y, c[v]);
       }
+    return;
+  }
+  const outdoor = theme === 'forest' || theme === 'canopy';
+  const bark = outdoor
+    ? [packColor(P.b1), packColor(P.b2), packColor(P.b3), packColor(P.b4), packColor(P.b5)]
+    : [packColor('#3a2a2e'), packColor('#5a3e3a'), packColor('#7a5446'), packColor('#946a54'), packColor('#b08868')];
+  const leaf = [packColor(P.g2), packColor(P.g3), packColor(P.g4), packColor(P.g5), packColor(P.g6)];
+  for (let x = 0; x < TILE; x++) {
+    const wx = x0 + x;
+    // a gently wavy branch, 5-6px thick, thinner toward free ends
+    const wave = outdoor ? Math.round(Math.sin(wx / 9 + seed) * 0.8) : 0;
+    let thick = outdoor ? 6 : 5;
+    if (outdoor && leftEnd && x < 5) thick -= Math.ceil((5 - x) / 2);
+    if (outdoor && rightEnd && x > 10) thick -= Math.ceil((x - 10) / 2);
+    for (let y = 0; y < thick; y++) {
+      let v = y === 0 ? 4 : y === 1 ? 3 : y < thick - 1 ? 2 : 0;
+      if (!outdoor && hash2(wx >> 3, y, seed) < 0.1) v = 1; // plank seams
+      if (outdoor && hash2(wx, y, seed + 4) < 0.08) v = Math.max(0, v - 1);
+      if (!outdoor && wx % 16 === 0) v = 0;
+      buf.set(wx, y0 + y + wave, bark[v]);
+    }
+    if (outdoor) {
+      // leaf tufts sprouting along the branch
+      const h = hash2(Math.floor(wx / 5), cy, seed + 8);
+      if (h < 0.45) {
+        const len = 1 + Math.floor(h * 6);
+        for (let k = 1; k <= len; k++) buf.set(wx, y0 - k + wave, leaf[Math.min(4, 1 + k)]);
+      }
+      if (hash2(wx, cy, seed + 9) < 0.18) buf.set(wx, y0 + thick + wave, leaf[1]);
+    }
+  }
+}
+
+/** Thorny bramble spikes filling a hazard tile. */
+function paintThorns(buf: PixelBuf, cx: number, cy: number, seed: number): void {
+  const x0 = cx * TILE;
+  const y0 = cy * TILE;
+  const dark = packColor('#2a1a28');
+  const mid = packColor('#5a3048');
+  const lite = packColor('#8a4a64');
+  const tip = packColor('#f0c8d0');
+  // tangled base
+  for (let x = 0; x < TILE; x++)
+    for (let y = 10; y < TILE; y++) buf.set(x0 + x, y0 + y, hash2(x0 + x, y, seed) < 0.3 ? mid : dark);
+  // spikes
+  for (let k = 0; k < 5; k++) {
+    const bx = x0 + 1 + k * 3 + Math.floor(hash2(cx, k, seed) * 2);
+    const h = 8 + Math.floor(hash2(cx, k + 9, seed) * 6);
+    const lean = hash2(cx, k + 3, seed) < 0.5 ? -1 : 1;
+    for (let yy = 0; yy < h; yy++) {
+      const px = bx + Math.round((yy / h) * lean * 2);
+      const py = y0 + TILE - 1 - yy;
+      const wdt = yy < h * 0.4 ? 1 : 0;
+      buf.set(px, py, yy > h - 3 ? tip : lite);
+      if (wdt) buf.set(px + 1, py, mid);
     }
   }
 }

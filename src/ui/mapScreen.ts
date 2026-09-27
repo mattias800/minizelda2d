@@ -127,6 +127,6 @@ export function drawMapScreen(ctx: Ctx, prog: Progress, currentRoom: string, px:
     'Arrows/WASD move   Z jump   X sword   C fire',
     'Down: crouch   Down in air: down-thrust   Up: talk/use',
   ];
-  help.forEach((l, i) => drawText(ctx, l, VIEW_W / 2, VIEW_H - 32 + i * 9, '#8a6a5a', { align: 'center' }));
-  if (t % 60 < 40) drawText(ctx, 'Enter to resume   M to mute', VIEW_W / 2, VIEW_H - 14, '#c0405e', { align: 'center' });
+  help.forEach((l, i) => drawText(ctx, l, VIEW_W / 2, VIEW_H - 36 + i * 9, '#8a6a5a', { align: 'center' }));
+  if (t % 60 < 40) drawText(ctx, 'Enter to resume   M to mute', VIEW_W / 2, VIEW_H - 18, '#c0405e', { align: 'center' });
 }

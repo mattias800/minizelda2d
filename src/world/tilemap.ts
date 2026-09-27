@@ -17,11 +17,19 @@ export const enum Tile {
 
 export class TileMap {
   readonly tiles: Uint8Array;
+  /** Solid tiles that are drawn as dense foliage instead of earth. */
+  readonly foliage: Uint8Array;
   constructor(
     readonly cols: number,
     readonly rows: number,
   ) {
     this.tiles = new Uint8Array(cols * rows);
+    this.foliage = new Uint8Array(cols * rows);
+  }
+
+  isFoliage(cx: number, cy: number): boolean {
+    if (cx < 0 || cx >= this.cols || cy < 0 || cy >= this.rows) return false;
+    return this.foliage[cy * this.cols + cx] === 1;
   }
 
   get widthPx(): number {

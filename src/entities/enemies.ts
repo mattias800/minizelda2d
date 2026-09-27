@@ -3,7 +3,7 @@ import { Ctx } from '../gfx/canvas';
 import { batFrames, slimeFrames, SlimeColor, spiderFrames } from '../gfx/sprites/creatures';
 import { MoblinKind, moblinFrames } from '../gfx/sprites/moblin';
 import { groundAt } from '../world/physics';
-import { Enemy, DamageSource } from './entity';
+import { Enemy } from './entity';
 import { Spear } from './projectiles';
 
 const GRAVITY = 0.26;
@@ -31,7 +31,7 @@ export class Moblin extends Enemy {
     x: number,
     y: number,
     protected kind: MoblinKind = 'moblin',
-    hp = 4,
+    hp = 3,
   ) {
     super(x, y, 16, 30, hp);
     this.homeX = x;
@@ -189,12 +189,12 @@ export class SpearMoblin extends Moblin {
 /** The cavern's armoured miniboss: big axe, slow, tough. */
 export class Brute extends Moblin {
   constructor(x: number, y: number) {
-    super(x, y, 'brute', 12);
+    super(x, y, 'brute', 10);
     this.body.w = 20;
     this.body.h = 40;
     this.knockbackResist = 0.75;
-    this.contactDamage = 2;
-    this.weaponDamage = 3;
+    this.contactDamage = 1;
+    this.weaponDamage = 2;
     this.speed = 0.6;
     this.reach = 62;
     this.windupTicks = 30;
@@ -349,10 +349,6 @@ export class Spider extends Enemy {
         break;
     }
     if (this.touchesPlayer()) this.scene.player?.hurt(this.contactDamage, this.x);
-  }
-
-  vulnerableTo(_src: DamageSource): boolean {
-    return true;
   }
 
   draw(ctx: Ctx, camX: number, camY: number): void {

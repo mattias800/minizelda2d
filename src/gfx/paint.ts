@@ -95,11 +95,13 @@ export function cloudBank(
         if (dx * dx + dy * dy > p.r * p.r) continue;
         const py = Math.round(p.y + dy);
         if (py > baseY) continue;
-        const shadeT = (py - (baseY - height * 0.35)) / (height * 0.35);
+        const px = Math.round(p.x + dx);
+        // flat, slightly wavy shadow band along the cloud base
+        const shadeLine = baseY - height * 0.3 + Math.round(Math.sin(px / 7) * 1.5);
         const lit = -(dx / p.r) * 0.4 - (dy / p.r) * 0.8;
         let c = colors.mid;
         if (lit > 0.35) c = colors.light;
-        if (shadeT > bayer(Math.round(p.x + dx), py) * 1.2 + 0.1) c = colors.shade;
+        if (py > shadeLine) c = colors.shade;
         set(Math.round(p.x + dx), py, c);
       }
     }

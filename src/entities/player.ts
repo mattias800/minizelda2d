@@ -12,7 +12,7 @@ export const PHYS = {
   run: 1.55,
   accelGround: 0.3,
   decelGround: 0.42,
-  accelAir: 0.2,
+  accelAir: 0.25,
   gravity: 0.26,
   maxFall: 5.5,
   jump: 5.4,
@@ -262,8 +262,8 @@ export class Player extends Entity {
     if (t < ACTIVE_FROM || t > ACTIVE_TO) return null;
     const low = this.attackCrouch && this.crouching;
     const y = low ? b.y - 15 : b.y - 24;
-    const x0 = this.facing > 0 ? b.x + 4 : b.x - 26;
-    return { x: x0, y, w: 22, h: 9 };
+    const x0 = this.facing > 0 ? b.x + 3 : b.x - 27;
+    return { x: x0, y, w: 24, h: 9 };
   }
 
   /** Shield check for a projectile at height `py` travelling in direction `dir`. */

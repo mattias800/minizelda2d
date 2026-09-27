@@ -1,6 +1,5 @@
 import { audio } from './core/audio';
-import { Input } from './core/input';
-import { runPreview } from './dev/preview';
+import { Action, Input } from './core/input';
 import { VIEW_H, VIEW_W } from './gfx/backgrounds';
 import { Game } from './game/game';
 import { validateRooms } from './world/rooms';
@@ -25,7 +24,7 @@ if (preview) {
   canvas.style.height = `${VIEW_H * 4}px`;
   const ctx = canvas.getContext('2d')!;
   ctx.imageSmoothingEnabled = false;
-  runPreview(preview, ctx, q);
+  void import('./dev/preview').then((m) => m.runPreview(preview, ctx, q));
 } else {
   validateRooms();
   canvas.width = VIEW_W;
@@ -44,10 +43,11 @@ if (preview) {
   const STEP = 1000 / 60;
   let acc = 0;
   let last = performance.now();
+  const manual = q.has('manual');
   const frame = (now: number) => {
     acc += Math.min(250, now - last);
     last = now;
-    while (acc >= STEP) {
+    while (acc >= STEP && !manual) {
       game.update();
       acc -= STEP;
     }
@@ -55,6 +55,19 @@ if (preview) {
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
+  // Handy for debugging from the browser console and the play-test scripts.
+  // With ?manual the simulation only advances through sim.step().
+  Object.assign(window, {
+    game,
+    sim: {
+      step(ticks: number, actions: Action[] = []): void {
+        input.scripted = new Set(actions);
+        for (let i = 0; i < ticks; i++) game.update();
+        input.scripted.clear();
+        game.draw(ctx);
+      },
+    },
+  });
 }
 
 /**

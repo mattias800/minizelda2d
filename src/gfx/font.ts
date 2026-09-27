@@ -175,10 +175,35 @@ export function wrapText(s: string, maxW: number): string[] {
   return out;
 }
 
-/** Scales a text bitmap up by an integer factor (title screen). */
+/**
+ * Large text for titles: glyphs scaled up by an integer factor, then given a
+ * crisp 1px outline and a drop shadow at the scaled resolution.
+ */
 export function bigText(s: string, color: string, scale: number, outline?: string): HTMLCanvasElement {
-  const src = renderText(s, color, outline ? { outline } : {});
-  const { canvas, ctx } = makeCanvas(src.width * scale, src.height * scale);
-  ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
-  return canvas;
+  const src = renderText(s, color);
+  const pad = 3;
+  const { canvas, ctx } = makeCanvas(src.width * scale + pad * 2, src.height * scale + pad * 2);
+  ctx.drawImage(src, pad, pad, src.width * scale, src.height * scale);
+  if (!outline) return canvas;
+  const buf = PixelBuf.fromCanvas(canvas);
+  // highlight the top row of every glyph stroke
+  const hi = packColor('#fff4c0');
+  const shade = packColor('#c8862e');
+  const base = packColor(color);
+  for (let y = 1; y < buf.h; y++)
+    for (let x = 0; x < buf.w; x++) {
+      if (buf.get(x, y) !== base) continue;
+      if (!(buf.get(x, y - 1) >>> 24)) buf.set(x, y, hi);
+      else if (!(buf.get(x, y + 1) >>> 24) || !(buf.get(x, y + 2) >>> 24)) buf.set(x, y, shade);
+    }
+  const oc = packColor(outline);
+  const src2 = buf.data.slice();
+  const at = (x: number, y: number) => (x < 0 || y < 0 || x >= buf.w || y >= buf.h ? 0 : src2[y * buf.w + x]);
+  for (let y = 0; y < buf.h; y++)
+    for (let x = 0; x < buf.w; x++) {
+      if (at(x, y) >>> 24) continue;
+      const near = at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1) || at(x, y - 2) || at(x - 1, y - 1) || at(x + 1, y - 1);
+      if (near >>> 24) buf.set(x, y, oc);
+    }
+  return buf.toCanvas();
 }

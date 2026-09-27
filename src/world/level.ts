@@ -32,7 +32,10 @@ export function parseRoom(def: RoomDef): ParsedRoom {
     for (let cx = 0; cx < row.length; cx++) {
       const ch = row[cx];
       const t = TILE_CHARS[ch];
-      if (t !== undefined) map.set(cx, cy, t);
+      if (ch === 'L') {
+        map.set(cx, cy, Tile.Solid);
+        map.foliage[cy * map.cols + cx] = 1;
+      } else if (t !== undefined) map.set(cx, cy, t);
       else if (ch !== '.') spawns.push({ kind: ch, cx, cy, x: cx * TILE + TILE / 2, y: (cy + 1) * TILE });
     }
   });

@@ -8,7 +8,7 @@ import { Shockwave } from './projectiles';
 type BossState = 'sleep' | 'roar' | 'walk' | 'windup' | 'swing' | 'crouch' | 'leap' | 'recover' | 'dying';
 
 export const BOSS_FLAG = 'boss:guardian';
-const MAX_HP = 26;
+const MAX_HP = 20;
 
 /**
  * The Guardian: a crowned moblin chieftain. Walks you down with a great
@@ -46,13 +46,22 @@ export class Guardian extends Enemy {
     return this.state !== 'sleep';
   }
 
-  vulnerableTo(_src: DamageSource): boolean {
+  vulnerableTo(src: DamageSource): boolean {
+    // Once enraged, spikes on the crown turn aside down-thrusts.
+    if (src === 'down' && this.angry) return false;
     return this.state !== 'sleep' && this.state !== 'roar' && this.state !== 'dying';
   }
 
   hurt(dmg: number, fromX: number, src: DamageSource): boolean {
+    const wasAngry = this.angry;
     const hit = super.hurt(dmg, fromX, src);
     if (hit) this.invuln = 24;
+    if (hit && !wasAngry && this.angry && this.hp > 0) {
+      // phase two: roar and sprout crown spikes
+      this.go('roar');
+      this.t = 10;
+      this.scene.spark(this.x, this.body.top - 4);
+    }
     return hit;
   }
 
@@ -179,7 +188,7 @@ export class Guardian extends Enemy {
   attackBox(): Rect | null {
     if (this.state !== 'swing' || this.t > 14) return null;
     const b = this.body;
-    return { x: this.facing > 0 ? b.right - 6 : b.left - 44, y: b.top - 6, w: 50, h: b.h + 6 };
+    return { x: this.facing > 0 ? b.right - 6 : b.left - 34, y: b.top - 6, w: 40, h: b.h + 6 };
   }
 
   draw(ctx: Ctx, camX: number, camY: number): void {
@@ -215,6 +224,20 @@ export class Guardian extends Enemy {
     const shake = this.state === 'dying' || (this.state === 'roar' && this.t > 20) ? (this.age % 2) * 2 - 1 : 0;
     const squat = this.state === 'crouch' ? 3 : 0;
     this.drawSprite(ctx, s, this.x - camX + shake, this.y - camY + squat, this.facing < 0);
+    if (this.angry && this.state !== 'dying') this.drawSpikes(ctx, this.x - camX + shake, this.body.top - camY + squat);
+  }
+
+  private drawSpikes(ctx: Ctx, x: number, top: number): void {
+    const cx = Math.round(x + this.facing * 7);
+    const y = Math.round(top + 3);
+    for (let i = -2; i <= 2; i++) {
+      const sx = cx + i * 5;
+      const h = 5 - Math.abs(i);
+      ctx.fillStyle = '#2a2634';
+      ctx.fillRect(sx - 1, y - h - 1, 3, h + 2);
+      ctx.fillStyle = '#d4dae6';
+      ctx.fillRect(sx, y - h, 1, h + 1);
+    }
   }
 }
 

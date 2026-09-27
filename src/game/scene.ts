@@ -83,7 +83,7 @@ export class Scene {
   ) {
     const parsed = parseRoom(def);
     this.map = parsed.map;
-    this.terrain = paintTerrain(this.map, def.theme, hashId(def.id));
+    this.terrain = terrainFor(def, this.map);
     this.backdrop = backdropFor(def.theme);
     this.atmosphere = new Atmosphere(def.theme, this.map.widthPx, hashId(def.id));
     this.populate(parsed.spawns);
@@ -364,8 +364,10 @@ export class Scene {
       // keep the hero from getting stuck above the top edge of a closed room
       return;
     }
+    // Probe just past the edge being crossed.
     const wx = this.def.gx * SCREEN_W_PX + b.x;
-    const wy = this.def.gy * SCREEN_H_PX + b.y - b.h / 2;
+    const probeY = dir === 'up' ? b.top - 1 : dir === 'down' ? b.top : b.y - b.h / 2;
+    const wy = this.def.gy * SCREEN_H_PX + probeY;
     const target = roomAtCell(Math.floor(wx / SCREEN_W_PX), Math.floor(wy / SCREEN_H_PX));
     if (!target || target === this.def) {
       // no room there: treat the edge as a wall
@@ -413,6 +415,18 @@ export class Scene {
     this.atmosphere.drawRays(ctx, camX);
     this.atmosphere.drawMotes(ctx, camX);
   }
+}
+
+const terrainCache = new Map<string, HTMLCanvasElement>();
+
+/** Terrain art only depends on the room layout, so paint each room once. */
+function terrainFor(def: RoomDef, map: TileMap): HTMLCanvasElement {
+  let t = terrainCache.get(def.id);
+  if (!t) {
+    t = paintTerrain(map, def.theme, hashId(def.id));
+    terrainCache.set(def.id, t);
+  }
+  return t;
 }
 
 function hashId(s: string): number {

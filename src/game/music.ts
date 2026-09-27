@@ -1,5 +1,5 @@
-import { Song } from '../core/audio';
-import { MusicId } from '../world/rooms';
+import type { Song } from '../core/audio';
+import type { MusicId } from '../world/rooms';
 
 /** Original chiptune score. Notes are `pitch/length` (length 4 = a quarter note). */
 
@@ -140,13 +140,10 @@ const boss: Song = {
       notes: [
         rep('e2/8 e3/8', 8),
         rep('c2/8 c3/8', 4),
-        rep('d2/8 d3/8', 4),
-        rep('e2/8 e3/8', 4),
         rep('b1/8 b2/8', 4),
         rep('g2/8 g3/8', 8),
-        rep('c2/8 c3/8', 4),
         rep('b1/8 b2/8', 4),
-        rep('e2/8 e3/8', 8),
+        rep('e2/8 e3/8', 4),
       ].join(' '),
     },
     { wave: 'noise', gain: 0.14, notes: rep('c3/8 c7/8 c5/8 c7/8 c3/8 c3/8 c5/8 c5/16 c5/16', 8) },
@@ -194,10 +191,14 @@ const ending: Song = {
     {
       wave: 'triangle',
       gain: 0.26,
-      notes:
-        'g4/8 c5/8 e5/8 g5/4 e5/8 g5/4 a5/8 g5/8 f5/8 e5/8 d5/8 e5/8 c5/2 -/8 e5/8 f5/8 g5/4 a5/8 g5/4 f5/8 e5/8 d5/8 c5/8 d5/8 b4/8 c5/2 -/4',
+      notes: [
+        'g4/8 c5/8 e5/8 g5/8 e5/4 g5/4',
+        'a5/8 g5/8 f5/8 e5/8 d5/4 c5/4',
+        'e5/8 f5/8 g5/4 a5/8 g5/8 f5/4',
+        'e5/8 d5/8 b4/4 c5/2',
+      ].join(' '),
     },
-    { wave: 'sine', gain: 0.2, notes: 'c3/2 e3/2 f2/2 g2/2 c3/2 a2/2 f2/2 g2/2 c3/2' },
+    { wave: 'sine', gain: 0.2, notes: 'c3/2 e3/2 f2/2 g2/2 c3/2 a2/2 f2/2 g2/2' },
   ],
 };
 
