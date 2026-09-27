@@ -15,7 +15,6 @@ interface ThemeLook {
   grassDepth: number;
   dirt: number[]; // dark -> light cobbles
   mortar: number;
-  deep: number; // colour the dirt fades toward with depth
   cellW: number;
   cellH: number;
   bricks: boolean;
@@ -30,7 +29,6 @@ const LOOKS: Record<Theme, ThemeLook> = {
     grassDepth: 13,
     dirt: pk(P.d1, P.d2, P.d3, P.d4, P.d5, P.d6),
     mortar: packColor(P.d0),
-    deep: packColor('#2c2a36'),
     cellW: 6,
     cellH: 10,
     bricks: false,
@@ -41,7 +39,6 @@ const LOOKS: Record<Theme, ThemeLook> = {
     grassDepth: 9,
     dirt: pk('#3a3044', '#4a3e52', '#5c4c5e', '#6c5866', '#7c6670', '#8e7478'),
     mortar: packColor('#261f2e'),
-    deep: packColor('#1b1824'),
     cellW: 6,
     cellH: 10,
     bricks: false,
@@ -52,7 +49,6 @@ const LOOKS: Record<Theme, ThemeLook> = {
     grassDepth: 6,
     dirt: pk('#2e3040', '#3c3e50', '#4a4e61', '#5c5a6c', '#6e6a78', '#827c88'),
     mortar: packColor('#1e2030'),
-    deep: packColor('#171a26'),
     cellW: 12,
     cellH: 9,
     bricks: false,
@@ -63,7 +59,6 @@ const LOOKS: Record<Theme, ThemeLook> = {
     grassDepth: 5,
     dirt: pk('#4e4760', '#5e5670', '#6e6682', '#807894', '#948ca6', '#aaa2ba'),
     mortar: packColor('#35304a'),
-    deep: packColor('#27233a'),
     cellW: 16,
     cellH: 8,
     bricks: true,
@@ -74,7 +69,6 @@ const LOOKS: Record<Theme, ThemeLook> = {
     grassDepth: 99,
     dirt: pk(P.d1, P.d2, P.d3, P.d4, P.d5, P.d6),
     mortar: packColor(P.d0),
-    deep: packColor(P.g0),
     cellW: 9,
     cellH: 7,
     bricks: false,
