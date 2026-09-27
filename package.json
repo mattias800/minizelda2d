@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node tools/regression.mjs",
+    "check:music": "node tools/check-music.mjs"
   },
   "devDependencies": {
     "playwright-core": "^1.63.0",

@@ -86,6 +86,10 @@ Some pointers for extending it:
 
 ### Dev tools
 
+* `npm test` runs the end-to-end regression suite (`tools/regression.mjs`) against the running
+  dev server, using headless Edge. It walks the critical path: room transitions, ability gates,
+  chests, the brute, the Guardian, saving, game over and the squirrel's trade.
+
 * `?room=cavern&items=feather,fire&hearts=6&x=100&y=160` starts straight in a room.
 * `?preview=sheet&set=hero|moblin&zoom=4` and `?preview=room&room=clearing` show art previews.
 * `node tools/sim.mjs "<query>" "<steps>"` runs a deterministic, scripted play-test in headless
