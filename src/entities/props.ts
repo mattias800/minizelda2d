@@ -135,7 +135,7 @@ export class Squirrel extends Entity implements Interactable {
     const f = squirrelFrames();
     const hop = this.chirpT > 12 ? -Math.round(Math.sin(((this.chirpT - 12) / 12) * Math.PI) * 3) : 0;
     f[this.chirpT > 0 ? 1 : 0].draw(ctx, this.x - camX, this.y - camY + hop, flip);
-    if (p && Math.abs(p.x - this.x) < 80 && Math.abs(p.y - this.y) < 40) drawBubble(ctx, 'kwee-koo!', this.x - camX + 2, this.body.top - camY - 6);
+    if (p && p.state === 'normal' && Math.abs(p.x - this.x) < 80 && Math.abs(p.y - this.y) < 40) drawBubble(ctx, 'kwee-koo!', this.x - camX + 2, this.body.top - camY - 6);
   }
 }
 

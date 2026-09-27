@@ -117,6 +117,11 @@ export abstract class Enemy extends Entity {
   /** Shared per-tick bookkeeping; subclasses call it first. */
   protected tickCommon(): void {
     this.age++;
+    // enemies never wander out through a room's exits
+    const half = this.body.w / 2;
+    const maxX = this.scene.map.widthPx - half;
+    if (this.body.x < half) this.body.x = half;
+    else if (this.body.x > maxX) this.body.x = maxX;
     if (this.invuln > 0) this.invuln--;
     if (this.flash > 0) this.flash--;
     if (this.stun > 0) {
