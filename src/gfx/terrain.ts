@@ -1,4 +1,4 @@
-import { hash2, valueNoise } from '../core/math';
+import { hash2 } from '../core/math';
 import { Theme } from '../world/rooms';
 import { TILE, Tile, TileMap } from '../world/tilemap';
 import { PixelBuf, packColor } from './canvas';
@@ -27,12 +27,12 @@ const pk = (...hex: string[]) => hex.map((h) => packColor(h));
 const LOOKS: Record<Theme, ThemeLook> = {
   forest: {
     grass: pk(P.g0, P.g1, P.g2, P.g3, P.g4, P.g5, P.g6, P.g7),
-    grassDepth: 11,
+    grassDepth: 13,
     dirt: pk(P.d1, P.d2, P.d3, P.d4, P.d5, P.d6),
     mortar: packColor(P.d0),
     deep: packColor('#2c2a36'),
-    cellW: 9,
-    cellH: 7,
+    cellW: 6,
+    cellH: 10,
     bricks: false,
     foliage: false,
   },
@@ -42,8 +42,8 @@ const LOOKS: Record<Theme, ThemeLook> = {
     dirt: pk('#3a3044', '#4a3e52', '#5c4c5e', '#6c5866', '#7c6670', '#8e7478'),
     mortar: packColor('#261f2e'),
     deep: packColor('#1b1824'),
-    cellW: 9,
-    cellH: 7,
+    cellW: 6,
+    cellH: 10,
     bricks: false,
     foliage: false,
   },
@@ -82,12 +82,6 @@ const LOOKS: Record<Theme, ThemeLook> = {
   },
 };
 
-/** 4x3 "leaf chevron" stamp; values are ramp offsets (higher = lighter). */
-const LEAF = [
-  [3, 2, 1, 0],
-  [2, 2, 0, -1],
-  [1, 0, -1, -2],
-];
 
 export function paintTerrain(map: TileMap, theme: Theme, seed: number): HTMLCanvasElement {
   const W = map.widthPx;
@@ -167,11 +161,12 @@ export function paintTerrain(map: TileMap, theme: Theme, seed: number): HTMLCanv
       const u = under[i];
 
       const bandT = grassT[x];
-      const isGrass =
-        look.foliage || (d <= bandT && d < 200) || (s < 2 && d <= bandT + 5 && d < 200 && look.grassDepth > 6);
-      if (isGrass) {
-        buf.set(x, y, grassPixel(x, y, d, s, u, look, seed));
-        continue;
+      if (d < 200) {
+        const gp = grassPixel(x, d, s, u, look, seed);
+        if (gp !== null) {
+          buf.set(x, y, gp);
+          continue;
+        }
       }
 
       // Soil / rock. Cobbles get darker the deeper they sit below the surface.
@@ -231,26 +226,45 @@ function paintFoliage(
   for (const c of clusters) leafCluster(buf, c.x, c.y, c.r, { ramp: leaves, rim, seed: Math.round(c.x * 7 + c.y), bias: ground ? -0.2 : -0.7 });
 }
 
-function grassPixel(x: number, y: number, d: number, s: number, u: number, look: ThemeLook, seed: number): number {
-  const row = Math.floor(y / 3);
-  const off = (row & 1) * 2 + Math.floor(hash2(row, Math.floor(x / 16), seed) * 2);
-  const lx = (x + off) & 3;
-  const ly = y % 3;
-  const n = hash2(Math.floor((x + off) / 4), row, seed + 5);
-  let v = LEAF[ly][lx] + (n < 0.25 ? 1 : n > 0.8 ? -1 : 0);
-  // Light from above: top rows brightest, deeper rows darker.
-  let base: number;
-  if (look.foliage) {
-    // leaf clump: lit top, dark underside
-    base = 5 - Math.min(4, d / 4) + Math.min(1.5, u / 6) - 1.5;
-    base += valueNoise(x / 9, y / 7, seed) * 1.5 - 0.5;
-  } else {
-    base = 5.2 - (d / look.grassDepth) * 3.2;
+const LEAF_W = 6;
+const LEAF_ROW = 4;
+const LEAF_H = 7;
+
+/**
+ * Grass is a band of interlocking, downward-pointing leaf blades in staggered
+ * rows (upper rows overlap lower ones), with dark gaps between the blades.
+ * Returns null where the band ends and the soil begins.
+ */
+function grassPixel(x: number, d: number, s: number, u: number, look: ThemeLook, seed: number): number | null {
+  const rows = Math.max(1, Math.ceil((look.grassDepth - 2) / LEAF_ROW));
+  const g = look.grass;
+  const pick = (v: number) => g[Math.max(0, Math.min(g.length - 1, Math.round(v)))];
+  if (u <= 1) return g[0];
+  const dy = d - 1; // 0 at the surface
+  for (let r = 0; r < rows; r++) {
+    const off = (r & 1) * (LEAF_W / 2);
+    const slot = Math.floor((x + off) / LEAF_W);
+    const jitter = hash2(slot, r, seed + 5);
+    // each blade is nudged a little so the pattern never looks like a grid
+    const top = r * LEAF_ROW + (jitter < 0.3 ? 1 : 0);
+    const ly = dy - top;
+    if (ly < 0 || ly >= LEAF_H) continue;
+    const cx = slot * LEAF_W - off + (LEAF_W - 1) / 2 + (jitter > 0.7 ? 1 : jitter < 0.15 ? -1 : 0);
+    const hw = 2.7 * (1 - ly / LEAF_H) + 0.2;
+    if (Math.abs(x - cx) > hw) continue;
+    let v = 4.3 - r * 0.75 + (jitter > 0.85 ? 0.7 : jitter < 0.1 ? -0.7 : 0);
+    if (x < cx) v += 0.8; // lit left half of the blade
+    if (ly >= LEAF_H - 2) v -= 0.8; // darker tip
+    if (ly <= 1 && r === 0) v += 1; // bright surface lip
+    if (s === 0) v -= 1.5;
+    if (hash2(x, d, seed + 6) < 0.03) v += 1.5; // glints
+    return pick(v);
   }
-  if (s === 0) v -= 1;
-  if (d <= 1) v += 1;
-  if (u <= 1) return look.grass[0];
-  return look.grass[Math.max(0, Math.min(look.grass.length - 1, Math.round(base + v * 0.8)))];
+  // between blades: dark gaps, until the last row of tips is passed
+  const bottom = (rows - 1) * LEAF_ROW + 2;
+  if (dy < bottom) return pick(dy < LEAF_ROW ? 2 : dy < LEAF_ROW * 2 ? 1.6 : 1);
+  if (s < 2 && dy < bottom + 4 && look.grassDepth > 6) return g[1];
+  return null;
 }
 
 function cobblePixel(x: number, y: number, below: number, look: ThemeLook, seed: number): number {

@@ -44,7 +44,7 @@ function buildRay(len: number, width: number, slant: number, color: string): HTM
   for (let y = 0; y < len; y++) {
     const x0 = y * slant;
     const fadeIn = Math.min(1, y / 20);
-    const fadeOut = Math.min(1, (len - y) / (len * 0.45));
+    const fadeOut = Math.min(1, (len - y) / (len * 0.6));
     const a = fadeIn * fadeOut;
     for (let x = 0; x < width; x++) {
       // two nested bands with dithered soft edges
@@ -71,8 +71,8 @@ export class Atmosphere {
     const rng = new Rng(seed * 31 + 7);
     const span = Math.max(VIEW_W, roomW * 0.6);
     for (let i = 0; i < this.cfg.rays; i++) {
-      const len = rng.int(130, 170);
-      const width = rng.int(12, 24);
+      const len = rng.int(105, 140);
+      const width = rng.int(9, 18);
       this.rays.push({
         img: buildRay(len, width, 0.42, this.cfg.rayColor),
         x: (i + 0.3 + rng.next() * 0.4) * (span / this.cfg.rays),

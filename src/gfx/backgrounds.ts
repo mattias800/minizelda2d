@@ -84,17 +84,31 @@ function farTrees(b: PixelBuf, seed: number, groundY: number, pale: string[], ba
     leafCluster(b, x, groundY + rng.int(-2, 4), rng.int(7, 12), { ramp: leaves, wrap: true, seed, texture: 0.5, bias: -0.3 });
 }
 
+interface CliffShape {
+  len: [number, number];
+  gapChance: number;
+  gap: [number, number];
+}
+
 /** Warm earthen cliffs with grassy caps (mid distance). */
-function cliffs(b: PixelBuf, seed: number, minTop: number, maxTop: number, earth: string[], grass: string[]): void {
+function cliffs(
+  b: PixelBuf,
+  seed: number,
+  minTop: number,
+  maxTop: number,
+  earth: string[],
+  grass: string[],
+  shape: CliffShape = { len: [70, 160], gapChance: 0.35, gap: [20, 50] },
+): void {
   const rng = new Rng(seed);
   const e = ramp(...earth);
   const g = ramp(...grass);
   const tops = new Int16Array(b.w).fill(VIEW_H);
   let x = 0;
   while (x < b.w) {
-    const len = rng.int(70, 160);
+    const len = rng.int(shape.len[0], shape.len[1]);
     const top = rng.int(minTop, maxTop);
-    const gap = rng.chance(0.35) ? rng.int(20, 50) : 0;
+    const gap = rng.chance(shape.gapChance) ? rng.int(shape.gap[0], shape.gap[1]) : 0;
     for (let i = 0; i < len && x + i < b.w; i++) {
       // rounded shoulders at each end
       const edge = Math.min(i, len - 1 - i);
@@ -102,40 +116,55 @@ function cliffs(b: PixelBuf, seed: number, minTop: number, maxTop: number, earth
     }
     x += len + gap;
   }
+  const lit = e.slice(3); // warm sunlit clay
+  const dark = e.slice(0, 3); // shadowed lower wall
   for (let x2 = 0; x2 < b.w; x2++) {
     const t = tops[x2];
+    const capT = 9 + Math.round(hash2(Math.floor(x2 / 4), 0, seed) * 3);
+    // how far the sunlit clay reaches down this column: vertical drips
+    const drip = 16 + Math.round(valueNoise(x2 / 3.5, 1, seed) * 20 + valueNoise(x2 / 11, 2, seed) * 14);
     for (let y = t; y < VIEW_H; y++) {
       const d = y - t;
-      // grass cap
-      const capT = 6 + Math.round(hash2(Math.floor(x2 / 4), 0, seed) * 3);
       if (d < capT) {
+        // grassy lip with chevron leaves, hanging tips at the bottom edge
         const row = Math.floor(y / 3);
         const lx = (x2 + (row & 1) * 2) & 3;
-        const v = 4 - (d / capT) * 2.5 + [1, 0.5, 0, -0.5][lx] + (hash2(x2 >> 2, row, seed) < 0.2 ? 1 : 0);
+        const v = 4.4 - (d / capT) * 3 + [1, 0.5, 0, -0.5][lx] + (hash2(x2 >> 2, row, seed) < 0.2 ? 1 : 0);
         b.set(x2, y, g[Math.max(0, Math.min(g.length - 1, Math.round(v)))]);
         continue;
       }
-      // cobbled lit earth: large soft cells
-      const cb = cobble(x2, y, 11, 8, seed);
-      let v = 3 + Math.floor(cb.id * 2);
-      const lit = -(cb.dx * 0.6 + cb.dy);
-      if (lit > 0.3) v += 1;
-      else if (lit < -0.3) v -= 1;
-      if (cb.edge < 0.1) v = 1;
-      if (d < capT + 2) v = 0; // shadow under grass
-      // vertical light fade: darker near the bottom
-      v -= Math.floor(((cb.cy - t) / 80) * 2 + bayer(x2, y) * 0.6);
-      b.set(x2, y, e[Math.max(0, Math.min(e.length - 1, v))]);
+      const dd = d - capT;
+      if (dd < 2) {
+        b.set(x2, y, dark[0]); // shadow under the lip
+        continue;
+      }
+      // tall narrow lumps give the eroded, streaky look
+      const cb = cobble(x2, y, 6, 11, seed);
+      if (dd < drip) {
+        let v = 1 + Math.floor(cb.id * 1.6);
+        if (-cb.dy > 0.25) v++;
+        if (cb.dy > 0.3 || cb.edge < 0.08) v--;
+        // fade into shadow toward the drip tips
+        if (dd > drip - 6 && bayer(x2, y) < (dd - drip + 6) / 6) v = -1;
+        b.set(x2, y, v < 0 ? dark[2] : lit[Math.min(lit.length - 1, v)]);
+      } else {
+        // shadowed wall: mostly flat with a few soft lumps
+        let v = 1;
+        if (cb.id > 0.72 && -cb.dy > 0.1) v = 2;
+        if (cb.edge < 0.07 && cb.id < 0.4) v = 0;
+        if (dd > drip + 50) v = Math.min(v, 1);
+        b.set(x2, y, dark[v]);
+      }
     }
     // shaded cliff side faces
     const prev = tops[(x2 - 1 + b.w) % b.w];
     if (prev > t)
-      for (let y = t + 3; y < Math.min(VIEW_H, prev + 4); y++) b.set(x2, y, e[1]);
+      for (let y = t + capT; y < Math.min(VIEW_H, prev + 4); y++) b.set(x2, y, dark[1]);
     const next = tops[(x2 + 1) % b.w];
     if (next > t)
-      for (let y = t + 3; y < VIEW_H; y++) {
-        b.set(x2, y, e[0]);
-        b.set(x2 - 1, y, e[1]);
+      for (let y = t + capT; y < VIEW_H; y++) {
+        b.set(x2, y, dark[0]);
+        b.set(x2 - 1, y, dark[1]);
       }
   }
 }
@@ -157,7 +186,7 @@ function canopyCeiling(b: PixelBuf, seed: number, depth: number, leaves: string[
       const r = rng.int(12, 20) - ri;
       const y = baseY + rng.int(-6, 8) + (ri >= 3 ? Math.round(valueNoise(x / 60, ri, seed) * 22) - 8 : 0);
       if (ri >= 3 && valueNoise(x / 45, 9, seed) < 0.35) continue; // gaps to the sky
-      leafCluster(b, x, y, r, { ramp: lr, rim, wrap: true, seed: seed + ri * 13 + x, bias: ri * 0.25 - 0.6 });
+      leafCluster(b, x, y, r, { ramp: lr, rim, wrap: true, seed: seed + ri * 13 + x, bias: ri * 0.3 - 1.2 });
     }
   });
 }
@@ -175,22 +204,33 @@ function forestLayers(): Layer[] {
     trunk(mid, x, 40, 150, 5, 9, ramp('#707a6e', '#8c9484', '#a8ac98', '#c4c4ac'), midRng.int(0, 99), 8);
     for (let k = 0; k < 6; k++)
       leafCluster(mid, x + midRng.range(-30, 30), 40 + midRng.range(-20, 14), midRng.range(12, 20), {
-        ramp: ramp('#407a66', '#4f9072', '#62a67e', '#7cbf8e', '#9ad4a0'),
-        rim: packColor('#306259'),
+        ramp: ramp('#2a5652', '#356a5c', '#447e66', '#569474', '#6eac84', '#8cc898'),
+        rim: packColor(P.navy),
+        bias: -0.4,
         wrap: true,
         seed: k + x,
       });
   }
-  cliffs(mid, 31, 104, 128, [P.c0, P.c1, P.c2, P.c3, P.c4, P.c5], [P.m1, P.m2, P.m3, '#7fcf8c', P.g6, P.g7]);
+  cliffs(mid, 31, 104, 128, ['#a08a88', '#b09490', '#bca098', P.c2, P.c3, P.c4], [P.m1, P.m2, P.m3, '#7fcf8c', P.g6, P.g7]);
+
+  // The shadowed earthen wall right behind the play area, with sunlit
+  // openings onto the distance.
+  const wall = new PixelBuf(900, VIEW_H);
+  cliffs(wall, 57, 62, 96, ['#5e5462', '#70606a', '#806a70', P.c2, P.c3, P.c4], [P.g1, P.g2, P.g3, P.g4, P.g5, P.g6, P.g7], {
+    len: [110, 220],
+    gapChance: 0.6,
+    gap: [60, 120],
+  });
 
   const top = new PixelBuf(820, VIEW_H);
-  canopyCeiling(top, 41, 58, [P.navy, P.m0, P.m1, P.g3, P.g4, P.g5, P.g6], P.navy, [P.b1, P.b2, P.b3, P.b4, P.b5]);
+  canopyCeiling(top, 41, 58, [P.navy, '#2a4a52', P.m0, '#3a6e62', P.m1, P.m2, '#6abd8a', '#a8e0a0'], P.navy, [P.b1, P.b2, P.b3, P.b4, P.b5]);
 
   return [
     { img: sky.toCanvas(), factor: 0.03 },
     { img: far.toCanvas(), factor: 0.15 },
-    { img: mid.toCanvas(), factor: 0.35 },
-    { img: top.toCanvas(), factor: 0.6 },
+    { img: mid.toCanvas(), factor: 0.3 },
+    { img: wall.toCanvas(), factor: 0.5 },
+    { img: top.toCanvas(), factor: 0.65 },
   ];
 }
 
