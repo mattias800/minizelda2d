@@ -19,12 +19,15 @@ export class TileMap {
   readonly tiles: Uint8Array;
   /** Solid tiles that are drawn as dense foliage instead of earth. */
   readonly foliage: Uint8Array;
+  /** Non-solid scenery earth painted behind the playfield (the '&' tiles). */
+  readonly back: Uint8Array;
   constructor(
     readonly cols: number,
     readonly rows: number,
   ) {
     this.tiles = new Uint8Array(cols * rows);
     this.foliage = new Uint8Array(cols * rows);
+    this.back = new Uint8Array(cols * rows);
   }
 
   isFoliage(cx: number, cy: number): boolean {

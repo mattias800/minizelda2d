@@ -58,6 +58,8 @@ export class Game implements GameHost {
   newGame(): void {
     this.progress = new Progress();
     this.enterRoom('clearing', null);
+    // Open on the classic view of the clearing; the camera settles on the hero after the intro.
+    this.scene!.camX = 140;
     this.mode = 'play';
     this.say(
       [

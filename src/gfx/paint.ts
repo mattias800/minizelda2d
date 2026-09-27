@@ -1,4 +1,4 @@
-import { Rng, bayer, hash2, valueNoise } from '../core/math';
+import { Rng, hash2 } from '../core/math';
 import { PixelBuf, packColor } from './canvas';
 
 /** Procedural painting helpers shared by backgrounds and props. */
@@ -10,63 +10,6 @@ export const ramp = (...hex: string[]): Ramp => hex.map((h) => packColor(h));
 export function setWrap(buf: PixelBuf, x: number, y: number, c: number): void {
   const w = buf.w;
   buf.set(((Math.round(x) % w) + w) % w, y, c);
-}
-
-const LEAF = [
-  [2, 1, 1, 0],
-  [1, 1, 0, -1],
-  [0, 0, -1, -1],
-];
-
-export interface ClusterOpts {
-  ramp: Ramp;
-  /** Base brightness offset (0 = middle of ramp). */
-  bias?: number;
-  /** Outline/gap colour painted under the cluster's lower rim. */
-  rim?: number;
-  wrap?: boolean;
-  seed?: number;
-  /** 0..1 how strong the leaf chevron texture is. */
-  texture?: number;
-}
-
-/**
- * Paints one leaf cluster: a jagged disc lit from the top-left with a chevron
- * leaf texture. Overlapping clusters painted top-to-bottom produce the dense,
- * clumpy foliage seen in the reference.
- */
-export function leafCluster(buf: PixelBuf, cx: number, cy: number, r: number, o: ClusterOpts): void {
-  const seed = o.seed ?? 1;
-  const n = o.ramp.length;
-  const tex = o.texture ?? 1;
-  const set = o.wrap ? (x: number, y: number, c: number) => setWrap(buf, x, y, c) : (x: number, y: number, c: number) => buf.set(x, y, c);
-  const R = Math.ceil(r + 3);
-  for (let dy = -R; dy <= R; dy++) {
-    for (let dx = -R; dx <= R; dx++) {
-      const x = Math.round(cx + dx);
-      const y = Math.round(cy + dy);
-      const ang = Math.atan2(dy, dx);
-      // jagged leafy edge: small triangular teeth around the rim
-      const tooth = Math.abs(((ang / (Math.PI * 2)) * Math.max(8, r * 1.6) + hash2(Math.round(cx), Math.round(cy), seed)) % 1 - 0.5) * 2;
-      const rr = r * (0.92 + 0.08 * valueNoise(ang * 3 + cx, cy, seed)) + tooth * 2.2 - 1;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d > rr) {
-        if (o.rim !== undefined && d <= rr + 1.5 && dy > r * 0.2) set(x, y, o.rim);
-        continue;
-      }
-      const nx = dx / r;
-      const ny = dy / r;
-      const light = -(nx * 0.55 + ny * 0.85); // -1..1
-      const row = Math.floor(y / 3);
-      const lx = (x + (row & 1) * 2) & 3;
-      const ly = ((y % 3) + 3) % 3;
-      let v = (n - 1) / 2 + (o.bias ?? 0) + light * (n / 2.6) + LEAF[ly][lx] * 0.9 * tex;
-      if (hash2(Math.floor(x / 4), row, seed) < 0.15) v += 1;
-      // soft ordered dither between steps
-      v += (bayer(x, y) - 0.5) * 0.6;
-      set(x, y, o.ramp[Math.max(0, Math.min(n - 1, Math.round(v)))]);
-    }
-  }
 }
 
 /** A puffy cumulus cloud bank made of overlapping discs with a flat, shaded base. */
@@ -138,19 +81,18 @@ export function trunk(
       const stripe = Math.sin(u * 9 + Math.sin(y / 11 + seed) * 2.2 + seed);
       if (stripe > 0.75) v -= 1.2;
       if (hash2(x, Math.floor(y / 3), seed) < 0.05) v -= 1;
-      v += (bayer(x, y) - 0.5) * 0.8;
       set(x, y, bark[Math.max(0, Math.min(n - 1, Math.round(v)))]);
     }
   }
 }
 
-/** Fills a vertical gradient using ordered dithering between ramp steps. */
+/** Fills a vertical gradient as clean flat bands (no dithering, like the reference). */
 export function ditherGradient(buf: PixelBuf, y0: number, y1: number, rampTopToBottom: Ramp): void {
   const n = rampTopToBottom.length - 1;
   for (let y = y0; y < y1; y++) {
     const t = ((y - y0) / Math.max(1, y1 - y0)) * n;
     for (let x = 0; x < buf.w; x++) {
-      const i = Math.min(n, Math.floor(t + bayer(x, y) - 0.5 + 0.5));
+      const i = Math.min(n, Math.floor(t + 0.5));
       buf.set(x, y, rampTopToBottom[Math.max(0, i)]);
     }
   }
@@ -197,4 +139,62 @@ export function cobble(x: number, y: number, cw: number, ch: number, seed: numbe
   }
   out.edge = Math.sqrt(second) - Math.sqrt(best);
   return out;
+}
+
+export interface ClumpOpts {
+  /** Dark -> light. Index 0 is the deep shadow, the last entry is a pale glint. */
+  ramp: Ramp;
+  seed?: number;
+  wrap?: boolean;
+  /** Shift the overall brightness (in ramp steps). */
+  bias?: number;
+  /** Leaf chevron spacing; larger = bigger leaves. */
+  leaf?: number;
+  /** Chance a lit leaf becomes a pale glint. */
+  glint?: number;
+}
+
+/**
+ * A clump of foliage in the reference's style. The clump is tiled with small,
+ * diagonally drooping leaf cells; each leaf takes one flat colour from the
+ * clump's lighting (top-left lit) plus a little variation, and gets a darker
+ * underside, so individual leaves read as clean 2-4px shapes. Leaves whose
+ * centre falls outside the clump are dropped, giving a naturally ragged edge.
+ */
+export function leafClump(buf: PixelBuf, cx: number, cy: number, r: number, o: ClumpOpts): void {
+  const seed = o.seed ?? 1;
+  const R = o.ramp;
+  const n = R.length;
+  const bias = o.bias ?? 0;
+  const size = o.leaf ?? 6;
+  const set = o.wrap ? (x: number, y: number, c: number) => setWrap(buf, x, y, c) : (x: number, y: number, c: number) => buf.set(x, y, c);
+  const Ri = Math.ceil(r + 3);
+  for (let dy = -Ri; dy <= Ri; dy++)
+    for (let dx = -Ri; dx <= Ri; dx++) {
+      const x = Math.round(cx + dx);
+      const y = Math.round(cy + dy);
+      // leaves fan outward: drooping down-left on the left half, down-right on the right
+      const ang = dx < 0 ? -0.6 : 0.6;
+      const ca = Math.cos(ang);
+      const sa = Math.sin(ang);
+      // leaf lattice in a rotated frame so leaves droop down-right
+      const u = x * ca + y * sa;
+      const v = -x * sa + y * ca;
+      const cell = cobble(u, v, size, size * 0.55, seed + (dx < 0 ? 17 : 0));
+      const lcu = u - cell.dx * size;
+      const lcv = v - cell.dy * size * 0.55;
+      const lx = lcu * ca - lcv * sa - cx; // leaf centre relative to the clump
+      const ly = lcu * sa + lcv * ca - cy;
+      const d2 = lx * lx + ly * ly;
+      const lim = ly > 0 ? r + 1.5 : r;
+      if (d2 > lim * lim) continue;
+      const light = -((lx / r) * 0.55 + (ly / r) * 0.85);
+      let val = 2.1 + light * 2.1 + bias + (cell.id - 0.5) * 1.8;
+      // underside of each leaf is darker, the upper-left rim a touch lighter
+      if (cell.edge < 0.2 && cell.dy > 0) val -= 1.4;
+      else if (cell.edge < 0.2 && cell.dy < -0.1) val += 0.7;
+      const glint = light > 0.3 && cell.id > 1 - (o.glint ?? 0.05) && cell.dy < 0.15;
+      val = glint ? n - 1 : Math.min(n - 2, val);
+      set(x, y, R[Math.max(0, Math.min(n - 1, Math.round(val)))]);
+    }
 }

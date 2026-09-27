@@ -1,6 +1,6 @@
 import { Rng } from '../../core/math';
 import { PixelBuf, packColor } from '../canvas';
-import { leafCluster, ramp, trunk } from '../paint';
+import { leafClump, ramp, trunk } from '../paint';
 import { Painter } from '../painter';
 import { P } from '../palette';
 import { Palette, Sprite, addOutline, spriteFromGrid } from '../sprite';
@@ -108,66 +108,119 @@ export const glowShroom = once(() =>
 // ------------------------------------------------------------------ big twisted tree
 
 /**
- * The pale, twisted forest giant from the reference: swirling bark, a knot
- * hole, flaring roots and a pair of branches reaching into the canopy.
+ * The pale, twisted forest giant from the reference: an S-curved trunk with
+ * spiralling bark plates outlined in dark grooves, a knot hole, flared roots,
+ * and two limbs forking up into its own leafy crown.
  */
 export const bigTree = once(() => {
-  const W = 110;
-  const H = 200;
+  const W = 190;
+  const H = 178;
   const b = new PixelBuf(W, H);
-  const bark = ramp(P.b1, P.b2, P.b3, P.b4, P.b5, P.b6);
-  const cx = 52;
-  // branches first (behind the trunk)
-  const branch = (x0: number, y0: number, x1: number, y1: number, w0: number, w1: number) => {
-    const n = 40;
-    for (let i = 0; i <= n; i++) {
-      const t = i / n;
-      const x = x0 + (x1 - x0) * t;
-      const y = y0 + (y1 - y0) * t - Math.sin(t * Math.PI) * 10;
+  const bark = [P.b0, P.b1, P.b2, P.b3, P.b4, P.b5, P.b6].map((h) => packColor(h));
+  const cx = 88;
+  const spine = (y: number) => cx + Math.sin((1 - y / H) * 3.1 + 0.2) * 14;
+  const width = (y: number) => {
+    const t = y / H; // 0 top .. 1 base
+    return 20 + t * 12 + (t > 0.86 ? (t - 0.86) * 130 : 0);
+  };
+  const shadeAt = (u: number) => (u < 0.14 ? 5 : u < 0.42 ? 4 : u < 0.72 ? 3 : 2);
+
+  // limbs first, behind the trunk
+  const limb = (x0: number, y0: number, x1: number, y1: number, w0: number, w1: number, bend: number) => {
+    const steps = 60;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const x = x0 + (x1 - x0) * t + Math.sin(t * Math.PI) * bend;
+      const y = y0 + (y1 - y0) * t;
       const w = w0 + (w1 - w0) * t;
       for (let dy = -w; dy <= w; dy++)
         for (let dx = -w; dx <= w; dx++) {
           if (dx * dx + dy * dy > w * w) continue;
-          const v = dy < -w * 0.3 ? 4 : dy > w * 0.4 ? 1 : 3;
-          b.set(Math.round(x + dx), Math.round(y + dy), bark[v]);
+          const u = (dx + w) / (2 * w);
+          b.set(Math.round(x + dx), Math.round(y + dy), bark[Math.max(2, shadeAt(u) - (dy > w * 0.4 ? 1 : 0))]);
         }
     }
   };
-  branch(cx - 4, 60, 6, 8, 7, 3);
-  branch(cx + 6, 70, 104, 22, 7, 3);
-  branch(cx + 2, 40, 70, 0, 6, 3);
-  trunk(b, cx, 0, H - 1, 20, 26, bark, 3, 6, false);
-  // swirling dark grooves
-  for (let k = 0; k < 7; k++) {
-    let x = cx - 12 + k * 4;
-    for (let y = 4; y < H - 8; y++) {
-      x += Math.sin(y / 14 + k) * 0.55;
-      if (b.alpha(Math.round(x), y)) b.set(Math.round(x), y, packColor(k % 2 ? P.b2 : P.b1));
-      if (k % 3 === 0 && b.alpha(Math.round(x) - 1, y)) b.set(Math.round(x) - 1, y, packColor(P.b5));
+  limb(cx - 2, 78, cx - 62, 30, 8, 3.5, -8);
+  limb(cx + 4, 72, cx + 66, 26, 7.5, 3, 8);
+  limb(cx - 1, 60, cx + 8, 20, 6, 3, -4);
+
+  // trunk body
+  for (let y = 40; y < H; y++) {
+    const c = spine(y);
+    const half = width(y) / 2;
+    for (let x = Math.floor(c - half); x <= Math.ceil(c + half); x++) {
+      const u = (x - (c - half)) / (half * 2);
+      b.set(x, y, bark[shadeAt(u)]);
     }
   }
+  // spiral bark plates: diagonal grooves wrapping around the twisting trunk,
+  // each with a lit lip above and a shaded band below
+  for (let y = 44; y < H - 4; y++) {
+    const c = spine(y);
+    const half = width(y) / 2;
+    const twist = 0.55 + Math.sin(y / 38) * 0.35;
+    for (let x = Math.floor(c - half) + 1; x < Math.ceil(c + half); x++) {
+      const u = (x - (c - half)) / (half * 2);
+      // wrap distance around the cylinder so plates bend near the edges
+      const around = Math.asin(Math.max(-1, Math.min(1, u * 2 - 1))) * half;
+      const w = y + around * twist + Math.sin(y / 9) * 1.5;
+      const m = ((w % 12) + 12) % 12;
+      if (m < 1.6) b.set(x, y, bark[1]);
+      else if (m < 2.6) b.set(x, y, bark[Math.max(1, shadeAt(u) - 1)]);
+      else if (m > 10.8) b.set(x, y, bark[Math.min(6, shadeAt(u) + 1)]);
+    }
+  }
+  // short vertical cracks for texture
+  const rng = new Rng(11);
+  for (let i = 0; i < 26; i++) {
+    const y0 = rng.int(50, H - 20);
+    const c = spine(y0);
+    const x = Math.round(c + rng.range(-0.4, 0.3) * width(y0));
+    const len = rng.int(3, 8);
+    for (let k = 0; k < len; k++) b.set(x + (k > len / 2 ? 1 : 0), y0 + k, bark[2]);
+  }
   // knot hole
-  for (let dy = -9; dy <= 9; dy++)
+  const kx = Math.round(spine(118)) - 3;
+  for (let dy = -8; dy <= 8; dy++)
     for (let dx = -5; dx <= 5; dx++) {
-      const d = (dx * dx) / 25 + (dy * dy) / 81;
-      if (d <= 1) b.set(cx - 6 + dx, 118 + dy, packColor(d > 0.6 ? P.b2 : d > 0.35 ? P.b0 : '#1e1a26'));
+      const d = (dx * dx) / 25 + (dy * dy) / 64;
+      if (d <= 1) b.set(kx + dx, 118 + dy, d > 0.62 ? bark[2] : d > 0.3 ? bark[0] : packColor('#1e1a26'));
+      else if (d <= 1.35 && dy < 0) b.set(kx + dx, 118 + dy, bark[6]);
     }
   // flared roots
-  const roots = [
-    [-1, 16],
-    [1, 20],
-    [-1, 30],
-    [1, 12],
+  const roots: [number, number, number][] = [
+    [-1, 26, 0],
+    [1, 30, 0],
+    [-1, 16, 3],
+    [1, 14, 4],
   ];
-  roots.forEach(([dir, len], i) => {
+  for (const [dir, len, lift] of roots) {
     for (let t = 0; t < len; t++) {
-      const x = cx + dir * (14 + t);
-      const y = H - 12 + Math.round((t * t) / (len * 1.4)) - i;
-      const w = Math.max(1, 5 - (t * 4) / len);
-      for (let dy = -w; dy <= w; dy++) b.set(Math.round(x), Math.round(y + dy), bark[dy < 0 ? 4 : 2]);
+      const x = spine(H - 1) + dir * (10 + t);
+      const y = H - 3 - lift + Math.round((t * t) / (len * 2.2));
+      const w = Math.max(1, 4.5 - (t * 4) / len);
+      for (let dy = -w; dy <= 0; dy++) b.set(Math.round(x), Math.round(y + dy), bark[dy < -w / 2 ? 5 : 3]);
+      b.set(Math.round(x), Math.round(y + 1), bark[1]);
     }
-  });
+  }
   addOutline(b, P.b0);
+
+  // leafy crown hiding the limb ends, in the canopy's colours
+  const leaves = ramp('#1c3444', P.navy, '#2f6b58', '#3a845f', '#48a864', '#5cbf70', '#b0e49c');
+  const crown: [number, number, number][] = [
+    [cx - 70, 22, 18],
+    [cx - 48, 12, 17],
+    [cx - 24, 18, 15],
+    [cx + 2, 8, 17],
+    [cx + 28, 16, 16],
+    [cx + 52, 8, 17],
+    [cx + 74, 20, 16],
+    [cx - 58, 36, 12],
+    [cx + 62, 34, 12],
+    [cx + 14, 30, 11],
+  ];
+  crown.forEach(([x, y, r], i) => leafClump(b, x, y, r, { ramp: leaves, seed: i * 31 + 5, bias: -0.3 }));
   return new Sprite(b.toCanvas(), cx + 1, H);
 });
 
@@ -177,9 +230,8 @@ export const smallTree = once(() => {
   const rng = new Rng(9);
   trunk(b, 30, 30, 89, 5, 8, ramp(P.b1, P.b2, P.b3, P.b4), 2, 3, false);
   for (let i = 0; i < 7; i++)
-    leafCluster(b, 30 + rng.range(-16, 16), 26 + rng.range(-14, 8), rng.range(9, 14), {
+    leafClump(b, 30 + rng.range(-16, 16), 26 + rng.range(-14, 8), rng.range(9, 14), {
       ramp: ramp(P.navy, P.m0, P.g3, P.g4, P.g5, P.g6),
-      rim: packColor(P.navy),
       seed: i,
     });
   return new Sprite(b.toCanvas(), 30, 90);
@@ -371,7 +423,7 @@ export function brambleMass(tiles: [number, number][], seed: number): { sprite: 
     for (let k = 0; k < 3; k++)
       blobs.push({ x: (tx - minX) * T + pad + rng.range(1, 15), y: (ty - minY) * T + pad + rng.range(2, 14), r: rng.range(6, 9.5) });
   blobs.sort((a, b) => a.y - b.y);
-  for (const b of blobs) leafCluster(buf, b.x, b.y, b.r, { ramp: bush, rim: bush[0], seed: Math.round(b.x * 13 + b.y), texture: 1, bias: -0.5 });
+  for (const b of blobs) leafClump(buf, b.x, b.y, b.r, { ramp: bush, seed: Math.round(b.x * 13 + b.y), bias: -0.5 });
   // thorns poking out of the silhouette
   for (const b of blobs)
     for (let k = 0; k < 4; k++) {

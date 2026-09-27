@@ -1,4 +1,4 @@
-import { Rng, bayer } from '../core/math';
+import { Rng } from '../core/math';
 import { Theme } from '../world/rooms';
 import { VIEW_H, VIEW_W } from './backgrounds';
 import { Ctx, PixelBuf, packColor } from './canvas';
@@ -30,7 +30,7 @@ interface AtmosphereConfig {
 }
 
 const CONFIGS: Record<Theme, AtmosphereConfig> = {
-  forest: { rays: 3, rayColor: '#fdfbe0', rayAlpha: 0.42, motes: 26, moteColors: ['#ffffff', '#fff4c8'], moteDrift: [0.08, -0.05] },
+  forest: { rays: 3, rayColor: '#f4f8d8', rayAlpha: 0.7, motes: 26, moteColors: ['#ffffff', '#fff4c8'], moteDrift: [0.08, -0.05] },
   canopy: { rays: 2, rayColor: '#ffffff', rayAlpha: 0.3, motes: 14, moteColors: ['#ffffff'], moteDrift: [0.15, 0.05], leaves: true },
   cave: { rays: 0, rayColor: '#b8f0e8', rayAlpha: 0.12, motes: 20, moteColors: ['#62d6d0', '#8ce8d8'], moteDrift: [0.03, -0.12], glow: true },
   shrine: { rays: 3, rayColor: '#fff8e0', rayAlpha: 0.22, motes: 20, moteColors: ['#fff4c8', '#ffffff'], moteDrift: [0.04, 0.03] },
@@ -40,7 +40,6 @@ const CONFIGS: Record<Theme, AtmosphereConfig> = {
 function buildRay(len: number, width: number, slant: number, color: string): HTMLCanvasElement {
   const w = Math.ceil(width + len * slant + 2);
   const b = new PixelBuf(w, len);
-  const c = packColor(color);
   for (let y = 0; y < len; y++) {
     const x0 = y * slant;
     const fadeIn = Math.min(1, y / 20);
@@ -50,7 +49,9 @@ function buildRay(len: number, width: number, slant: number, color: string): HTM
       // two nested bands with dithered soft edges
       const edge = Math.min(x, width - 1 - x);
       const band = edge < 2 ? 0.45 : edge < 5 ? 0.75 : 1;
-      if (a * band > bayer(Math.round(x0 + x), y) * 0.9 + 0.05) b.set(Math.round(x0 + x), y, c);
+      // smooth translucency in a few flat steps, brighter core
+      const alpha = Math.round(a * band * 4) / 4;
+      if (alpha > 0) b.set(Math.round(x0 + x), y, packColor(color, Math.round(alpha * 255)));
     }
   }
   return b.toCanvas();
@@ -71,8 +72,8 @@ export class Atmosphere {
     const rng = new Rng(seed * 31 + 7);
     const span = Math.max(VIEW_W, roomW * 0.6);
     for (let i = 0; i < this.cfg.rays; i++) {
-      const len = rng.int(105, 140);
-      const width = rng.int(9, 18);
+      const len = rng.int(110, 140);
+      const width = rng.int(16, 28);
       this.rays.push({
         img: buildRay(len, width, 0.42, this.cfg.rayColor),
         x: (i + 0.3 + rng.next() * 0.4) * (span / this.cfg.rays),

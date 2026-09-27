@@ -1,8 +1,8 @@
-import { hash2 } from '../core/math';
+import { hash2, valueNoise } from '../core/math';
 import { Theme } from '../world/rooms';
 import { TILE, Tile, TileMap } from '../world/tilemap';
 import { PixelBuf, packColor } from './canvas';
-import { cobble, leafCluster, ramp } from './paint';
+import { cobble, leafClump, ramp } from './paint';
 import { P } from './palette';
 
 /**
@@ -19,6 +19,8 @@ interface ThemeLook {
   cellH: number;
   bricks: boolean;
   foliage: boolean; // whole solid body is leaves (canopy)
+  /** Sunlit clay with vertical drips (background earth), instead of cobbles. */
+  clay?: boolean;
 }
 
 const pk = (...hex: string[]) => hex.map((h) => packColor(h));
@@ -78,10 +80,22 @@ const LOOKS: Record<Theme, ThemeLook> = {
 
 
 export function paintTerrain(map: TileMap, theme: Theme, seed: number): HTMLCanvasElement {
+  const front = paintLayer(map, theme, seed);
+  if (!map.back.includes(1)) return front;
+  // Background earth: painted as its own terrain, sunlit and warm, behind the playfield.
+  const backMap = new TileMap(map.cols, map.rows);
+  for (let i = 0; i < map.back.length; i++) if (map.back[i]) backMap.tiles[i] = Tile.Solid;
+  const back = PixelBuf.fromCanvas(paintLayer(backMap, theme, seed + 101, true));
+  const out = back.toCanvas();
+  out.getContext('2d')!.drawImage(front, 0, 0);
+  return out;
+}
+
+function paintLayer(map: TileMap, theme: Theme, seed: number, clay = false): HTMLCanvasElement {
   const W = map.widthPx;
   const H = map.heightPx;
   const buf = new PixelBuf(W, H);
-  const look = LOOKS[theme];
+  const look = clay ? { ...LOOKS[theme], clay: true } : LOOKS[theme];
 
   // Ground mask, with the outside of the room treated as a continuation of
   // the edge so the painting doesn't get a fake rim at room borders.
@@ -165,7 +179,11 @@ export function paintTerrain(map: TileMap, theme: Theme, seed: number): HTMLCanv
 
       // Soil / rock. Cobbles get darker the deeper they sit below the surface.
       const below = d >= 200 ? 12 : d - bandT;
-      let c = look.bricks ? brickPixel(x, y, look, seed) : cobblePixel(x, y, below, look, seed);
+      let c = look.clay
+        ? clayPixel(x, y, below, seed)
+        : look.bricks
+          ? brickPixel(x, y, look, seed)
+          : cobblePixel(x, y, below, look, seed);
       // shadow cast by the grass lip
       if (!look.foliage && below >= 0 && below <= 1) c = look.mortar;
       // rim on exposed side faces and undersides
@@ -203,7 +221,6 @@ function paintFoliage(
         if (isLeaf(cx, cy)) buf.fillRect(cx * TILE + 3, cy * TILE + 3, TILE - 6, TILE - 6, core);
   }
   const leaves = ramp(P.navy, P.g1, P.g2, P.g3, P.g4, P.g5, P.g6, P.g7);
-  const rim = packColor(P.navy);
   const clusters: { x: number; y: number; r: number }[] = [];
   for (let cy = 0; cy < map.rows; cy++)
     for (let cx = 0; cx < map.cols; cx++) {
@@ -217,7 +234,7 @@ function paintFoliage(
       }
     }
   clusters.sort((a, b) => a.y - b.y);
-  for (const c of clusters) leafCluster(buf, c.x, c.y, c.r, { ramp: leaves, rim, seed: Math.round(c.x * 7 + c.y), bias: ground ? -0.2 : -0.7 });
+  for (const c of clusters) leafClump(buf, c.x, c.y, c.r, { ramp: leaves, seed: Math.round(c.x * 7 + c.y), bias: ground ? -0.2 : -0.7 });
 }
 
 const LEAF_W = 6;
@@ -259,6 +276,25 @@ function grassPixel(x: number, d: number, s: number, u: number, look: ThemeLook,
   if (dy < bottom) return pick(dy < LEAF_ROW ? 2 : dy < LEAF_ROW * 2 ? 1.6 : 1);
   if (s < 2 && dy < bottom + 4 && look.grassDepth > 6) return g[1];
   return null;
+}
+
+const CLAY_LIT = pk(P.c2, P.c3, P.c4, P.c5);
+const CLAY_DARK = pk('#5e5462', '#70606a', '#806a70');
+
+/** Sunlit clay under a grassy lip, dripping down into a shadowed base (as in the reference). */
+function clayPixel(x: number, y: number, below: number, seed: number): number {
+  const drip = 14 + Math.round(valueNoise(x / 3.5, 1, seed) * 18 + valueNoise(x / 11, 2, seed) * 12);
+  const cb = cobble(x, y, 6, 11, seed);
+  if (below < drip) {
+    let v = 1 + Math.floor(cb.id * 1.6);
+    if (-cb.dy > 0.25) v++;
+    if (cb.dy > 0.3 || cb.edge < 0.08) v--;
+    return CLAY_LIT[Math.max(0, Math.min(3, v))];
+  }
+  let v = 1;
+  if (cb.id > 0.72 && -cb.dy > 0.1) v = 2;
+  if (cb.edge < 0.07 && cb.id < 0.4) v = 0;
+  return CLAY_DARK[v];
 }
 
 function cobblePixel(x: number, y: number, below: number, look: ThemeLook, seed: number): number {

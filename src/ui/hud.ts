@@ -17,7 +17,7 @@ export function drawHud(ctx: Ctx, prog: Progress, t: number, bossHp: number | nu
     const s = hp >= 2 ? hearts.full : hp === 1 ? hearts.half : hearts.empty;
     // the last full heart pulses when low on health
     const low = prog.hp <= 2 && hp > 0 && t % 30 < 15;
-    s.draw(ctx, 8 + i * 12, 4 - (low ? 1 : 0));
+    s.draw(ctx, 8 + i * 14, 3 - (low ? 1 : 0));
   }
 
   // magic medallion + meter

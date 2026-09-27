@@ -55,12 +55,12 @@ export class TitleScreen {
   draw(ctx: Ctx): void {
     const camX = Math.round((Math.sin(this.t / 900 - Math.PI / 2) * 0.5 + 0.5) * this.maxPan);
     backdropFor('forest').draw(ctx, camX, 0);
-    bigTree().draw(ctx, 16 * 16 + 8 - camX, 160);
+    bigTree().draw(ctx, 15 * 16 + 8 - camX, 160);
     ctx.drawImage(this.terrain, -camX, 0);
-    yellowMushroom().draw(ctx, 11 * 16 + 8 - camX, 128);
+    yellowMushroom().draw(ctx, 12 * 16 + 8 - camX, 96);
     squirrelFrames()[Math.floor(this.t / 40) % 5 === 0 ? 1 : 0].draw(ctx, 19 * 16 + 8 - camX, 160);
-    heroFrames().idle[Math.floor(this.t / 32) % 2].draw(ctx, 22 * 16 - camX, 160);
-    redMushroom().draw(ctx, 30 * 16 + 12 - camX, 160);
+    heroFrames().idle[Math.floor(this.t / 32) % 2].draw(ctx, 21 * 16 + 8 - camX, 160);
+    redMushroom().draw(ctx, 29 * 16 + 12 - camX, 160);
     this.atmo.drawRays(ctx, camX);
     this.atmo.drawMotes(ctx, camX);
 

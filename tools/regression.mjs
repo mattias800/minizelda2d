@@ -5,6 +5,13 @@ import { chromium } from 'playwright-core';
 
 const SCENARIOS = [
   {
+    name: 'gamepad works even behind a phantom device',
+    query: '',
+    steps:
+      "eval:(window.__mk=(m)=>({connected:true,mapping:m,buttons:Array.from({length:17},()=>({pressed:false,value:0})),axes:[0,0,0,0,0,0,0,0,0,3.3]}),window.__pads=[__mk(''),__mk('standard')],navigator.getGamepads=()=>window.__pads);30;eval:window.__pads[1].buttons[0].pressed=true;2;eval:window.__pads[1].buttons[0].pressed=false;2",
+    expect: "game.mode === 'play'",
+  },
+  {
     name: 'walk east into the Old Forest Path',
     query: 'room=clearing&x=640&y=160',
     steps: '40:right;30',
@@ -72,13 +79,13 @@ const SCENARIOS = [
   },
   {
     name: 'save stone saves the game',
-    query: 'room=clearing&x=150&y=128',
-    steps: '3;30:left;1:up;5',
-    expect: "JSON.parse(localStorage.getItem('minizelda2d.save.v1')).x === 120",
+    query: 'room=clearing&x=100&y=160',
+    steps: '3;4:left;1:up;5',
+    expect: "JSON.parse(localStorage.getItem('minizelda2d.save.v1')).x === 88",
   },
   {
     name: 'dying leads to game over and respawn',
-    query: 'room=clearing&x=150&y=128',
+    query: 'room=clearing&x=100&y=160',
     steps: '3;eval:(game.progress.hp=1,game.scene.player.hurt(2,0));200;1:attack;5',
     expect: "game.mode === 'play' && game.progress.hp === game.progress.maxHp && game.progress.data.deaths === 1",
   },
